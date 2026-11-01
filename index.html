@@ -206,6 +206,9 @@
   .nav-main{font-weight:700}
   .pub{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--paper)}
 
+  .cfg-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .cfg-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px}
+
   /* Mobile */
   @media (max-width:820px){
     .app{grid-template-columns:1fr}
@@ -303,8 +306,10 @@
       <button data-act="nav" data-view="quick" data-view-btn data-roles="admin,finance" class="nav-main">Thu tiền dâng</button>
       <button data-act="nav" data-view="offerings" data-view-btn data-roles="admin,finance">Ban Tài chính</button>
       <button data-act="nav" data-view="units" data-view-btn data-roles="admin,leader">Chi phái &amp; ban ngành</button>
+      <button data-act="nav" data-view="cfg" data-view-btn data-roles="admin,secretariat">Danh mục</button>
       <button data-act="nav" data-view="members" data-view-btn data-roles="admin,leader,tribe">Tín hữu</button>
       <button data-act="nav" data-view="households" data-view-btn data-roles="admin,leader,tribe">Hộ gia đình</button>
+      <button data-act="nav" data-view="baninfo" data-view-btn>Thông tin ban</button>
       <button data-act="nav" data-view="sschool" data-view-btn><span class="long">Trường Chúa Nhật</span><span class="short">Trường CN</span></button>
       <button data-act="nav" data-view="tnsch" data-view-btn data-roles="admin,tn">Thiếu nhi Ấu</button>
       <button data-act="nav" data-view="care" data-view-btn data-roles="admin,care">Ban Chăm sóc</button>
@@ -375,12 +380,16 @@ const num = v => (v === "" || v == null) ? null : Number(v);
 const opt = (v, sel, label) => `<option value="${esc(v)}" ${String(v)===String(sel ?? "") ? "selected":""}>${esc(label ?? v)}</option>`;
 const givenName = fullName => (fullName || "").trim().split(/\s+/).pop() || "";
 const ageOf = y => y ? NOW - y : null;
-const isAdmin = () => me?.role === "admin";            // Admin: toàn quyền
-const isLeader = () => me?.role === "leader";          // Mục sư, Thư ký hội thánh
-const isTop = () => isAdmin() || isLeader();           // xem toàn hội thánh, quản lý tín hữu và hộ
+const isAdmin = () => me?.role === "admin" || me?.role === "secretariat";   // Admin và Ban Thư ký: toàn quyền nghiệp vụ
+const isSysAdmin = () => me?.role === "admin";                                   // Admin hệ thống
 const isFinance = () => me?.role === "finance";
-const canViewFinance = () => isAdmin() || isFinance() || isLeader();   // Lãnh đạo: chỉ xem số liệu báo cáo
-const canEditFinance = () => isAdmin() || isFinance();   // Ban Tài chính và Admin (Mục sư, Thư ký) được nhập, sửa, xóa
+const isLeader = () => me?.role === "leader";                                    // Mục sư quản nhiệm: chỉ xem
+const isTop = () => isAdmin() || isLeader();                                     // đọc toàn hội thánh
+const isBanHead = () => !!me?.ministry && (me?.role === "ministry" || me?.ss === "head" || me?.tn === "head");
+const banOwned = m => isBanHead() && m?.ministry === me.ministry;
+const canEditFinance = () => isSysAdmin() || isFinance();                        // nhận tiền dâng: Admin và Ban Tài chính
+const canViewFinance = () => isAdmin() || isFinance() || isLeader();
+const canEditMember = m => isAdmin() || (me?.role === "tribe" && m?.tribe === me.tribe) || banOwned(m);
 const tribeName = t => t ? (UNIT_NAMES.get(Number(t)) || `Chi phái ${t}`) : "Chưa rõ";
 
 function ageGroup(y){
@@ -436,7 +445,13 @@ async function loadData(){
     members = []; households = []; courses = []; enrollments = [];
     return;
   }
-  if (me.role === "ss" || me.role === "secretariat"){
+  if (me.role === "ministry"){
+    const m = await getDocs(query(collection(db, "members"), where("ministry", "==", me.ministry)));
+    members = m.docs.map(d => ({id:d.id, ...d.data()}));
+    households = []; courses = []; enrollments = [];
+    return;
+  }
+  if (me.role === "ss"){
     // Trường Chúa Nhật: cần danh sách tín hữu để thêm vào lớp và danh sách khóa học
     const [m, c] = await Promise.all([getDocs(collection(db, "members")), getDocs(collection(db, "courses"))]);
     members = m.docs.map(d => ({id:d.id, ...d.data()}));
@@ -484,9 +499,14 @@ onAuthStateChanged(auth, async user => {
     showLogin("Tài khoản đã bị khóa. Liên hệ quản trị viên.");
     return;
   }
-  if (!["admin","leader","tribe","finance","ss","secretariat","care","tn","visit"].includes(d.role) || (d.role === "ss" && !["head","secretary","teacher"].includes(d.ss))) {
+  if (!["admin","leader","ministry","tribe","finance","ss","secretariat","care","tn","visit"].includes(d.role) || (d.role === "ss" && !["head","secretary","teacher"].includes(d.ss))) {
     await signOut(auth);
     showLogin("Tài khoản chưa được gán vai trò hợp lệ. Liên hệ thư ký.");
+    return;
+  }
+  if (d.role === "ministry" && !d.ministry) {
+    await signOut(auth);
+    showLogin("Tài khoản trưởng ban chưa gán ban phụ trách. Liên hệ Ban Thư ký.");
     return;
   }
   if (d.role === "tn" && !["head","teacher"].includes(d.tn)) {
@@ -500,10 +520,10 @@ onAuthStateChanged(auth, async user => {
     return;
   }
   me = { uid: user.uid, name: d.name || user.email, role: d.role, tribe: d.tribe ? Number(d.tribe) : null,
-         ss: ["head","secretary","teacher"].includes(d.ss) ? d.ss : null, email: String(user.email || "").toLowerCase(), tn: ["head","teacher"].includes(d.tn) ? d.tn : null };
+         ss: ["head","secretary","teacher"].includes(d.ss) ? d.ss : null, email: String(user.email || "").toLowerCase(), tn: ["head","teacher"].includes(d.tn) ? d.tn : null, ministry: d.ministry || null };
   $("#meName").textContent = me.name;
   const ssLabel = { head: "Trưởng ban Trường Chúa Nhật", secretary: "Thư ký Trường Chúa Nhật", teacher: "Giáo viên / trợ giảng" }[me.ss] || "";
-  $("#meRole").textContent = isAdmin() ? "Quản trị hệ thống (toàn quyền)" : isLeader() ? "Mục sư / Thư ký hội thánh"
+  $("#meRole").textContent = isSysAdmin() ? "Quản trị hệ thống (toàn quyền)" : me.role === "secretariat" ? "Ban Thư ký" : isLeader() ? "Mục sư / Thư ký hội thánh" : me.role === "ministry" ? "Trưởng ban " + me.ministry
     : isFinance() ? "Trưởng ban tài chính"
     : me.role === "secretariat" ? "Ban Thư ký"
     : me.role === "care" ? "Ban Chăm sóc"
@@ -526,6 +546,7 @@ onAuthStateChanged(auth, async user => {
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
   await loadUnits();
+  await loadCfg();
   await loadData();
   await loadReminders();
   render();
@@ -541,20 +562,23 @@ function showLogin(msg = ""){
 function render(){
   let allowed = [];
   if (isFinance()) allowed = ["quick", "offerings", "reports"];
-  else if (me.role === "secretariat") allowed = ["secretariat", "reports"];
   else if (me.role === "care") allowed = ["care"];
-  else if (me.role === "tn") allowed = ["tnsch"];
+  else if (me.role === "tn") allowed = ["tnsch", ...(isBanHead() ? ["members", "baninfo"] : [])];
+  else if (me.role === "ministry") allowed = ["members", "baninfo"];
   else if (me.role === "visit") allowed = ["visits"];
   else {
     if (isTop() || me.role === "tribe") allowed.push("overview","members","households","reports");
     if (isTop()) allowed.push("units");
-    if (isAdmin()) allowed.push("quick", "offerings", "users", "secretariat", "care", "tnsch", "visits");
+    if (me.role === "tribe" || isBanHead()) allowed.push("baninfo");
+    if (isBanHead() && me.role !== "ministry" && !allowed.includes("members")) allowed.push("members");
+    if (isAdmin()) allowed.push("offerings", "users", "secretariat", "care", "tnsch", "visits", "cfg");
+    if (isSysAdmin()) allowed.push("quick");
     if (ssAny()) allowed.push("sschool");
   }
   if (!allowed.includes(view)) view = allowed[0];
-  document.querySelectorAll("[data-view-btn]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  document.querySelectorAll("[data-view-btn]").forEach(b => { b.classList.toggle("on", b.dataset.view === view); b.classList.toggle("hidden", !allowed.includes(b.dataset.view)); });
   ({ overview: () => withRegular(vOverview), members: vMembers, households: vHouseholds, courses: vCourses,
-     units: vUnits, reports: vReports, quick: () => { offTab = "quick"; return vOfferings(); }, offerings: vOfferings, sschool: vSchool, users: vUsers, secretariat: vSecretariat, care: vCare, tnsch: vTn, visits: vVisits })[view]();
+     units: vUnits, cfg: vCfg, baninfo: vBanInfo, reports: vReports, quick: () => { offTab = "quick"; return vOfferings(); }, offerings: vOfferings, sschool: vSchool, users: vUsers, secretariat: vSecretariat, care: vCare, tnsch: vTn, visits: vVisits })[view]();
   if (view === "overview" || view === "secretariat") showReminder();
 }
 
@@ -608,7 +632,7 @@ function vOverview(){
 function vMembers(){
   $("#main").innerHTML = `
     <div class="head"><div><h1>Thành viên</h1><div class="sub" id="count"></div></div>
-      <button class="btn" data-act="add-member">Thêm thành viên</button></div>
+      ${(isAdmin() || me.role === "tribe" || isBanHead()) ? `<button class="btn" data-act="add-member">Thêm thành viên</button>` : ""}</div>
     <div class="toolbar">
       <input id="q" type="search" placeholder="Tìm theo tên">
       ${isTop() ? `<select id="fTribe"><option value="">Mọi chi phái</option>${TRIBES.map(t=>opt(t,"",tribeName(t))).join("")}</select>` : ""}
@@ -653,7 +677,7 @@ function renderMemberList(){
 }
 
 function memberForm(m = {}){
-  const tribeVal = isTop() ? (m.tribe ?? "") : me.tribe;
+  const tribeVal = (isAdmin() || isBanHead()) ? (m.tribe ?? "") : me.tribe;
   const hhOptions = households
     .filter(h => isTop() || h.tribe === me.tribe)
     .sort((a,b) => a.name.localeCompare(b.name, "vi"))
@@ -668,17 +692,18 @@ function memberForm(m = {}){
     <label>Năm tin Chúa<input type="number" name="faithYear" min="1900" max="${NOW}" value="${m.faithYear ?? ""}"></label>
     <label>Năm báp-têm<input type="number" name="baptismYear" min="1900" max="${NOW}" value="${m.baptismYear ?? ""}"></label>
     <label>Loại<select name="memberType">${["Thành viên","Vãng lai"].map(t => opt(t, m.memberType || "Thành viên", t === "Vãng lai" ? "Tín hữu vãng lai" : "Tín hữu của hội thánh")).join("")}</select></label>
-    <label>Chi phái<select name="tribe" ${isTop() ? "" : "disabled"}>
-      ${isTop() ? `<option value="">Chưa rõ</option>` : ""}${TRIBES.map(t => opt(t, tribeVal, tribeName(t))).join("")}</select>
-      ${isTop() ? `<div class="hint">Bắt buộc với tín hữu của hội thánh; vãng lai có thể để trống.</div>` : ""}</label>
-    <label>Ban sinh hoạt<select name="ministry"><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, m.ministry, k)).join("")}</select>
+    <label>Chi phái<select name="tribe" ${(isAdmin() || isBanHead()) ? "" : "disabled"}>
+      ${(isAdmin() || isBanHead()) ? `<option value="">Chưa rõ</option>` : ""}${TRIBES.map(t => opt(t, tribeVal, tribeName(t))).join("")}</select>
+      ${(isAdmin() || isBanHead()) ? `<div class="hint">Bắt buộc với tín hữu của hội thánh; vãng lai có thể để trống.</div>` : ""}</label>
+    <label>Ban sinh hoạt<select name="ministry" ${(me.role === "ministry" || (isBanHead() && !isAdmin())) ? "disabled" : ""}><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, (me.role === "ministry" || (isBanHead() && !isAdmin())) ? me.ministry : m.ministry, k)).join("")}</select>
       <div class="hint" id="sugg">${sugg ? "Gợi ý theo tuổi: " + sugg : ""}</div></label>
     <label>Hộ gia đình<select name="householdId"><option value="">Chưa thuộc hộ</option>${hhOptions}</select></label>
     <label>Quan hệ trong hộ<select name="relation"><option value="">—</option>${RELATIONS.map(r => opt(r, m.relation, r)).join("")}</select></label>
+    <label class="full">Email đăng nhập (nếu là giáo viên)<input name="email" type="email" value="${esc(m.email)}"></label>
     <label class="full">Địa chỉ<input name="address" value="${esc(m.address)}"></label>
     <label class="full">Ghi chú<textarea name="note" rows="2">${esc(m.note)}</textarea></label>
     <div class="dlg-foot full">
-      ${m.id && isTop() ? `<button type="button" class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
+      ${m.id && isAdmin() ? `<button type="button" class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
       <span class="spacer"></span>
       <button type="button" class="btn ghost" data-act="close">Hủy</button>
       <button class="btn" type="submit">Lưu</button>
@@ -695,8 +720,45 @@ function openMemberForm(m = {}){
   });
 }
 
+// Ghi lịch sử thay đổi: ai sửa, lúc nào, trường nào từ giá trị gì sang giá trị gì
+const LOG_SKIP = ["id", "searchName", "updatedAt", "createdAt", "updatedBy", "createdBy", "source"];
+async function writeMemberLog(action, id, name, before, after){
+  const changes = {};
+  const keys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
+  keys.forEach(k => {
+    if (LOG_SKIP.includes(k)) return;
+    const a = before ? (before[k] ?? null) : null;
+    const b = after ? (after[k] ?? null) : null;
+    if (JSON.stringify(a) !== JSON.stringify(b)) changes[k] = { from: a, to: b };
+  });
+  if (action === "sửa" && !Object.keys(changes).length) return;
+  try {
+    await addDoc(collection(db, "memberLogs"), {
+      memberId: id, memberName: name, action, changes, by: me.name, byRole: me.role,
+      tribe: (after?.tribe ?? before?.tribe) ?? null, ministry: (after?.ministry ?? before?.ministry) ?? null,
+      at: serverTimestamp()
+    });
+  } catch (err){ console.warn("Chưa ghi được nhật ký:", err.message); }
+}
+
+async function loadMemberLogs(id){
+  const box = $("#mlogs");
+  if (!box) return;
+  try {
+    const c = [where("memberId", "==", id)];
+    if (me.role === "tribe") c.push(where("tribe", "==", me.tribe));
+    else if (isBanHead() && !isAdmin() && !isLeader()) c.push(where("ministry", "==", me.ministry));
+    const snap = await getDocs(query(collection(db, "memberLogs"), ...c));
+    const list = snap.docs.map(d => d.data()).sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0));
+    box.innerHTML = list.length ? list.slice(0, 30).map(l => `<div style="border-bottom:1px solid var(--line);padding:6px 0">
+      <strong>${esc(l.action)}</strong> · ${esc(l.by || "")} · ${l.at?.toDate ? fmtDate(isoOf(l.at.toDate())) : ""}
+      <div class="sub">${esc(Object.entries(l.changes || {}).map(([k, v]) => `${k}: ${v.from ?? "—"} → ${v.to ?? "—"}`).join("; "))}</div></div>`).join("")
+      : "Chưa có thay đổi nào được ghi.";
+  } catch (err){ box.textContent = "Không tải được lịch sử (" + err.message + ")."; }
+}
+
 async function saveMember(id, fd){
-  const tribe = isTop() ? num(fd.get("tribe")) : me.tribe;
+  const tribe = (isAdmin() || isBanHead()) ? num(fd.get("tribe")) : me.tribe;
   const memberType = fd.get("memberType") === "Vãng lai" ? "Vãng lai" : "Thành viên";
   if (memberType !== "Vãng lai" && !TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái cho tín hữu của hội thánh.");
   const data = {
@@ -708,25 +770,32 @@ async function saveMember(id, fd){
     faithYear: num(fd.get("faithYear")),
     baptismYear: num(fd.get("baptismYear")),
     tribe,
-    ministry: fd.get("ministry") || null,
+    ministry: (me.role === "ministry" || (isBanHead() && !isAdmin())) ? me.ministry : (fd.get("ministry") || null),
+    email: (fd.get("email") || "").trim().toLowerCase() || null,
     householdId: fd.get("householdId") || null,
     relation: fd.get("relation") || null,
     address: fd.get("address").trim(),
     note: fd.get("note").trim(),
     updatedAt: serverTimestamp()
   };
-  if (id) await updateDoc(doc(db, "members", id), data);
-  else    await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp() });
+  const before = id ? { ...(members.find(x => x.id === id) || {}) } : null;
+  if (id) await updateDoc(doc(db, "members", id), { ...data, updatedBy: me.name });
+  else {
+    const ref = await addDoc(collection(db, "members"), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+    id = ref.id;
+  }
+  await writeMemberLog(before ? "sửa" : "thêm", id, data.fullName, before, data);
   await loadData(); closeDialog(); render();
 }
 
 function openMemberDetail(id){
+  setTimeout(() => loadMemberLogs(id), 0);
   const m = members.find(x => x.id === id);
   if (!m) return;
   const hh = households.find(h => h.id === m.householdId);
   const fams = hh ? members.filter(x => x.householdId === hh.id && x.id !== m.id).sort(sortByName) : [];
   const hist = enrollments.filter(e => e.memberId === m.id).sort((a,b) => (b.year||0)-(a.year||0));
-  const canEdit = isTop() || m.tribe === me.tribe;
+  const canEdit = canEditMember(m);
   openDialog(`
   <div class="dlg">
     <h2>${esc(m.fullName)}</h2>
@@ -743,6 +812,8 @@ function openMemberDetail(id){
       ${m.note ? `<dt>Ghi chú</dt><dd>${esc(m.note)}</dd>` : ""}
     </dl>
 
+    <h3>Lịch sử thay đổi hồ sơ</h3>
+    <div id="mlogs" class="sub">Đang tải…</div>
     <h3>Lịch sử khóa học</h3>
     ${hist.length ? `<table><thead><tr><th>Khóa</th><th>Năm</th><th>Kết quả</th><th></th></tr></thead><tbody>
       ${hist.map(e => `<tr><td>${esc(e.courseName)}</td><td>${e.year || "—"}</td><td>${esc(e.result || "—")}</td>
@@ -758,7 +829,7 @@ function openMemberDetail(id){
     </form>` : (canEdit ? `<div class="hint">Chưa có khóa học nào. Thư ký có thể thêm ở mục Khóa học.</div>` : "")}
 
     <div class="dlg-foot">
-      ${isTop() || m.tribe === me.tribe ? `<button class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
+      ${isAdmin() ? `<button class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
       <span class="spacer"></span>
       <button class="btn ghost" data-act="close">Đóng</button>
       ${canEdit ? `<button class="btn" data-act="edit-member" data-id="${m.id}">Sửa</button>` : ""}
@@ -770,6 +841,7 @@ async function deleteMember(id){
   const m = members.find(x => x.id === id);
   if (!m || !confirm(`Xóa “${m.fullName}” khỏi sổ? Không thể hoàn tác.`)) return;
   for (const e of enrollments.filter(e => e.memberId === id)) await deleteDoc(doc(db, "enrollments", e.id));
+  await writeMemberLog("xóa", id, m.fullName, m, null);
   await deleteDoc(doc(db, "members", id));
   await loadData(); closeDialog(); render();
 }
@@ -781,7 +853,7 @@ function vHouseholds(){
   }));
   $("#main").innerHTML = `
     <div class="head"><div><h1>Hộ gia đình</h1><div class="sub">${households.length} hộ</div></div>
-      <button class="btn" data-act="add-household">Thêm hộ</button></div>
+      ${(isAdmin() || me.role === "tribe") ? `<button class="btn" data-act="add-household">Thêm hộ</button>` : ""}</div>
     ${groups.map(g => `
       <div class="tribe-block"><h2>${tribeName(g.t)}</h2>
         ${g.hhs.length ? `<div class="hh-list">${g.hhs.map(h => {
@@ -798,12 +870,12 @@ function householdForm(h = {}){
   <form class="dlg form" id="fh" data-id="${esc(h.id || "")}">
     <h2 class="full">${h.id ? "Sửa hộ" : "Thêm hộ gia đình"}</h2>
     <label class="full">Tên hộ *<input name="name" required value="${esc(h.name)}" placeholder="VD: Hộ anh Minh"></label>
-    <label>Chi phái *<select name="tribe" ${isTop() ? "required" : "disabled"}>
-      ${isTop() ? `<option value="">Chọn</option>` : ""}${TRIBES.map(t => opt(t, isTop() ? h.tribe : me.tribe, tribeName(t))).join("")}</select></label>
+    <label>Chi phái *<select name="tribe" ${isAdmin() ? "required" : "disabled"}>
+      ${isAdmin() ? `<option value="">Chọn</option>` : ""}${TRIBES.map(t => opt(t, isAdmin() ? h.tribe : me.tribe, tribeName(t))).join("")}</select></label>
     <label>Địa chỉ<input name="address" value="${esc(h.address)}"></label>
     <label class="full">Ghi chú<textarea name="note" rows="2">${esc(h.note)}</textarea></label>
     <div class="dlg-foot full">
-      ${h.id && isTop() ? `<button type="button" class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
+      ${h.id && isAdmin() ? `<button type="button" class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
       <span class="spacer"></span>
       <button type="button" class="btn ghost" data-act="close">Hủy</button>
       <button class="btn" type="submit">Lưu</button>
@@ -813,7 +885,7 @@ function householdForm(h = {}){
 function openHouseholdForm(h = {}){ openDialog(householdForm(h)); }
 
 async function saveHousehold(id, fd){
-  const tribe = isTop() ? num(fd.get("tribe")) : me.tribe;
+  const tribe = isAdmin() ? num(fd.get("tribe")) : me.tribe;
   if (!TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái.");
   const data = { name: fd.get("name").trim(), tribe, address: fd.get("address").trim(),
                  note: fd.get("note").trim(), updatedAt: serverTimestamp() };
@@ -840,11 +912,11 @@ function openHouseholdDetail(id){
       <td>${m.birthYear || "—"}</td><td>${esc(m.ministry || "")}</td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">Hộ chưa có thành viên. Thêm thành viên vào hộ bên dưới.</div>`}
     <div class="dlg-foot">
-      ${isTop() ? `<button class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
+      ${isAdmin() ? `<button class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
       <span class="spacer"></span>
       <button class="btn ghost" data-act="close">Đóng</button>
       <button class="btn ghost" data-act="add-to-household" data-id="${h.id}">Thêm thành viên</button>
-      <button class="btn" data-act="edit-household" data-id="${h.id}">Sửa hộ</button>
+      ${isAdmin() || (me.role === "tribe" && h.tribe === me.tribe) ? `<button class="btn" data-act="edit-household" data-id="${h.id}">Sửa hộ</button>` : ""}
     </div>
   </div>`);
 }
@@ -955,7 +1027,7 @@ async function loadOfferingYear(y, force = false){
 }
 
 async function vOfferings(){
-  if (!canEditFinance()) offTab = "report";
+  if (!canEditFinance() && (offTab === "quick" || offTab === "pledges")) offTab = "list";
   let pending = [];
   if (canEditFinance()){
     try { pending = await loadPledges(); } catch (err) { pending = pledgesOpen || []; }
@@ -965,9 +1037,9 @@ async function vOfferings(){
   $("#main").innerHTML = `
     <div class="head"><div><h1>Ban Tài chính</h1>
       <div class="sub">${canEditFinance() ? "Nhập dâng hiến, nhận hứa dâng và in biên nhận" : "Chỉ xem"}</div></div>
-      ${canEditFinance() ? `<button class="btn ghost" data-act="add-offering">Nhập bổ sung</button>` : ""}</div>
+      ${canEditFinance() ? `<button class="btn ghost" data-act="cfg-open" data-key="funds">Quản lý quỹ</button> <button class="btn ghost" data-act="add-offering">Nhập bổ sung</button>` : ""}</div>
     <div class="tabs">
-      ${canEditFinance() ? tb("quick", "Thu nhanh") + tb("pledges", "Hứa dâng" + (pending.length ? ` (${pending.length})` : "")) + tb("list", "Danh sách") : ""}${tb("report", "Báo cáo tài chính")}
+      ${canEditFinance() ? tb("quick", "Thu nhanh") + tb("pledges", "Hứa dâng" + (pending.length ? ` (${pending.length})` : "")) : ""}${tb("list", "Danh sách")}${tb("report", "Báo cáo tài chính")}
     </div>
     <div id="offbody"><div class="empty">Đang tải dữ liệu…</div></div>`;
   try {
@@ -1009,7 +1081,7 @@ function filteredOfferings(){
   const q = fold(offFilter.q.trim());
   return (offeringsByYear[offFilter.year] || [])
     .filter(o => !offFilter.month || o.month === Number(offFilter.month))
-    .filter(o => !offFilter.fund || o.fund === offFilter.fund)
+    .filter(o => !offFilter.fund || canonicalFund(o.fund) === offFilter.fund)
     .filter(o => !q || fold(o.donorName).includes(q) || String(o.receiptNo || "").includes(q))
     .sort((a, b) => b.date.localeCompare(a.date) || String(a.donorName).localeCompare(String(b.donorName), "vi"));
 }
@@ -1572,7 +1644,8 @@ async function cancelPledge(id){
 }
 
 /* ---- Trang hứa dâng công khai (không đăng nhập) ---- */
-function showPublicPledge(){
+async function showPublicPledge(){
+  try { const d = await getDoc(doc(db, "configLists", "funds")); if (d.exists()) applyCfgDoc("funds", d.data()); } catch (e) {}
   $("#login").classList.add("hidden");
   $("#app").classList.add("hidden");
   $("#pledgePublic").classList.remove("hidden");
@@ -1967,7 +2040,7 @@ function openClassForm(c = {}){
     <label class="full">Tên lớp *<input name="name" required value="${esc(c.name)}" placeholder="VD: Cao niên, Thanh niên"></label>
     <label class="full">Liên kết ban sinh hoạt<select name="ministry"><option value="">Không liên kết</option>${MINISTRIES.map(k => opt(k, c.ministry, k)).join("")}</select>
       <div class="hint">Dùng để nạp nhanh danh sách học viên từ ban trong danh sách tín hữu.</div></label>
-    <label class="full">Giáo viên / trợ giảng (email đăng nhập, cách nhau bằng dấu phẩy)<input name="teachers" value="${esc((c.teacherEmails || []).join(", "))}" placeholder="giaovien@example.com"></label>
+    <label class="full">Giáo viên / trợ giảng (chọn từ danh sách tín hữu, cách nhau bằng dấu chấm phẩy ;)<input name="teachers" list="ssNames" autocomplete="off" value="${esc((c.teacherEmails || []).join("; "))}" placeholder="giaovien@example.com"></label>
     <label class="full check"><input type="checkbox" name="active" ${c.active === false ? "" : "checked"}> Đang hoạt động</label>
     <div class="dlg-foot full"><span class="spacer"></span>
       <button type="button" class="btn ghost" data-act="close">Hủy</button><button class="btn" type="submit">Lưu</button></div>
@@ -1975,7 +2048,9 @@ function openClassForm(c = {}){
 }
 
 async function saveClass(id, fd){
-  const data = { name: fd.get("name").trim(), ministry: fd.get("ministry") || null, teacherEmails: emailsOf(fd.get("teachers")),
+  const tEm = teacherEmailsFrom(fd.get("teachers"));
+  if (tEm === null) return;
+  const data = { name: fd.get("name").trim(), ministry: fd.get("ministry") || null, teacherEmails: tEm,
     active: fd.get("active") === "on", updatedBy: me.name, updatedAt: serverTimestamp() };
   try {
     if (id){
@@ -2151,6 +2226,20 @@ async function ssCourses(){
       : `<div class="empty">${ssFull() ? "Chưa có khóa học nào." : "Bạn chưa được phân công khóa học nào."}</div>`}`;
 }
 
+// Giáo viên chọn từ danh sách tín hữu (lấy email đăng nhập của họ); cho phép nhập thẳng email
+function teacherEmailsFrom(text){
+  const labels = donorLabels();
+  const out = [], bad = [];
+  String(text || "").split(";").map(x => x.trim()).filter(Boolean).forEach(tok => {
+    const m = labels.get(tok);
+    if (m){ if (m.email) out.push(String(m.email).toLowerCase()); else bad.push(`${m.fullName} (chưa có email)`); }
+    else if (tok.includes("@")) out.push(tok.toLowerCase());
+    else bad.push(`“${tok}” (chọn từ danh sách tín hữu)`);
+  });
+  if (bad.length){ alertErr("Không gán được: " + bad.join(", ")); return null; }
+  return [...new Set(out)];
+}
+
 function openCourseFormSS(c = {}){
   openDialog(`
   <form class="dlg form" id="fcrs" data-id="${esc(c.id || "")}">
@@ -2160,17 +2249,19 @@ function openCourseFormSS(c = {}){
     <span></span>
     <label>Từ ngày *<input type="date" name="startDate" required value="${esc(c.startDate)}"></label>
     <label>Đến ngày (nếu có)<input type="date" name="endDate" value="${esc(c.endDate)}"></label>
-    <label class="full">Giáo viên / trợ giảng (email đăng nhập, cách nhau bằng dấu phẩy)<input name="teachers" value="${esc((c.teacherEmails || []).join(", "))}"></label>
+    <label class="full">Giáo viên / trợ giảng (chọn từ danh sách tín hữu, cách nhau bằng dấu chấm phẩy ;)<input name="teachers" list="ssNames" autocomplete="off" value="${esc((c.teacherEmails || []).join("; "))}"></label>
     <div class="dlg-foot full"><span class="spacer"></span>
       <button type="button" class="btn ghost" data-act="close">Hủy</button><button class="btn" type="submit">Lưu</button></div>
   </form>`);
 }
 
 async function saveCourseSS(id, fd){
+  const tEm = teacherEmailsFrom(fd.get("teachers"));
+  if (tEm === null) return;
   const startDate = fd.get("startDate"), endDate = fd.get("endDate");
   if (endDate && endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
   const data = { name: fd.get("name").trim(), type: fd.get("type"), startDate, endDate, year: Number(startDate.slice(0, 4)),
-    teacherEmails: emailsOf(fd.get("teachers")), updatedBy: me.name, updatedAt: serverTimestamp() };
+    teacherEmails: tEm, updatedBy: me.name, updatedAt: serverTimestamp() };
   try {
     const { updatedAt, ...local } = data;
     if (id){
@@ -2374,7 +2465,7 @@ async function ssAct(a, el){
 
 /* ============ QUẢN TRỊ TÀI KHOẢN VÀ PHÂN QUYỀN ============ */
 let usersList = [], uSearch = "", lastCred = "";
-const ROLE_LABELS = { visit: "Ban Thăm viếng", tn: "Ban Thiếu nhi Ấu", admin: "Quản trị hệ thống (toàn quyền)", leader: "Mục sư / Thư ký hội thánh", secretariat: "Ban Thư ký", care: "Ban Chăm sóc", tribe: "Chi phái trưởng", finance: "Trưởng ban tài chính", ss: "Trường Chúa Nhật" };
+const ROLE_LABELS = { ministry: "Trưởng ban ngành", visit: "Ban Thăm viếng", tn: "Ban Thiếu nhi Ấu", admin: "Quản trị hệ thống (toàn quyền)", leader: "Mục sư / Thư ký hội thánh", secretariat: "Ban Thư ký", care: "Ban Chăm sóc", tribe: "Chi phái trưởng", finance: "Trưởng ban tài chính", ss: "Trường Chúa Nhật" };
 const SS_LABELS = { head: "Trưởng ban", secretary: "Thư ký", teacher: "Giáo viên / trợ giảng" };
 
 function roleText(u){
@@ -2451,6 +2542,8 @@ function userForm(u = {}){
       <div class="hint">Giáo viên, trợ giảng chỉ thấy các lớp và khóa được phân công (Trưởng ban nhập email của họ khi tạo lớp, khóa).</div></label>
     <label id="uTnWrap" class="full">Vai trò trong Ban Thiếu nhi Ấu<select name="tn"><option value="">Chọn vai trò</option>${opt("head", u.tn, "Trưởng ban")}${opt("teacher", u.tn, "Giáo viên / trợ giảng")}</select>
       <div class="hint">Giáo viên chỉ thấy lớp và chương trình có email của mình trong danh sách giáo viên.</div></label>
+    <label id="uMinWrap" class="full">Ban phụ trách<select name="ministry"><option value="">Chọn ban</option>${MINISTRIES.map(k => opt(k, u.ministry, k)).join("")}</select>
+      <div class="hint">Trưởng ban chỉ thấy và sửa thành viên của ban này. Trưởng ban TCN, TN nhập ban phụ trách nếu có.</div></label>
     ${isNew ? `
     <label class="full">Mật khẩu tạm thời
       <div style="display:flex;gap:8px"><input name="pw" id="uPw" value="${genPassword()}" minlength="8" autocomplete="off" style="font-family:ui-monospace,monospace">
@@ -2475,6 +2568,8 @@ function syncUserForm(){
   const r = f.role.value;
   $("#uTribeWrap").classList.toggle("hidden", r !== "tribe");
   $("#uSsWrap").classList.toggle("hidden", !(r === "tribe" || r === "ss"));
+  $("#uMinWrap").classList.toggle("hidden", !["ministry", "ss", "tn"].includes(r));
+  f.ministry.required = r === "ministry";
   f.tribe.required = r === "tribe";
   f.ss.required = r === "ss";
   f.ss.options[0].textContent = r === "ss" ? "Chọn vai trò" : "Không tham gia";
@@ -2507,7 +2602,9 @@ async function saveUser(id, fd){
   if (!Object.keys(ROLE_LABELS).includes(role)) return alertErr("Vui lòng chọn vai trò.");
   if (role === "tribe" && !TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái.");
   if (role === "ss" && !ss) return alertErr("Vui lòng chọn vai trò trong Trường Chúa Nhật.");
-  const base = { name, role, tribe, ss, tn, email };
+  const ministry = ["ministry", "ss", "tn"].includes(role) ? (fd.get("ministry") || null) : null;
+  if (role === "ministry" && !ministry) return alertErr("Vui lòng chọn ban phụ trách.");
+  const base = { name, role, tribe, ss, tn, ministry, email };
 
   if (id){
     const active = fd.get("active") === "on";
@@ -3058,6 +3155,7 @@ function openSecMemberForm(m = {}){
     <label>Loại<select name="memberType">${opt("Thành viên", m.memberType || "Thành viên", "Tín hữu của hội thánh")}${opt("Vãng lai", m.memberType, "Tín hữu vãng lai")}</select></label>
     <label>Chi phái<select name="tribe"><option value="">Chưa rõ</option>${TRIBES.map(t => opt(t, m.tribe, tribeName(t))).join("")}</select></label>
     <label class="full">Ban sinh hoạt<select name="ministry"><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, m.ministry, k)).join("")}</select></label>
+    <label class="full">Email đăng nhập (nếu là giáo viên)<input name="email" type="email" value="${esc(m.email)}"></label>
     <label class="full">Địa chỉ<input name="address" value="${esc(m.address)}"></label>
     <label class="full">Ghi chú<textarea rows="2" name="note">${esc(m.note)}</textarea></label>
     <div class="dlg-foot full">
@@ -3070,6 +3168,7 @@ function openSecMemberForm(m = {}){
 }
 
 async function saveSecMember(id, fd){
+  const __before = id ? { ...(members.find(m => m.id === id) || {}) } : null;
   const memberType = fd.get("memberType") === "Vãng lai" ? "Vãng lai" : "Thành viên";
   const t = num(fd.get("tribe"));
   const tribe = TRIBES.includes(t) ? t : null;
@@ -3080,7 +3179,7 @@ async function saveSecMember(id, fd){
     const dup = members.find(x => fold(x.fullName) === fold(fullName) && (x.birthYear || null) === birthYear);
     if (dup && !confirm(`Đã có “${dup.fullName}” cùng năm sinh trong danh sách. Vẫn thêm một người mới?`)) return;
   }
-  const data = { fullName, searchName: fold(fullName), gender: fd.get("gender") || null, birthYear,
+  const data = { fullName, searchName: fold(fullName), email: (fd.get("email") || "").trim().toLowerCase() || null, gender: fd.get("gender") || null, birthYear,
     faithYear: num(fd.get("faithYear")), baptismYear: num(fd.get("baptismYear")), tribe,
     ministry: fd.get("ministry") || null, address: fd.get("address").trim(), note: fd.get("note").trim(), memberType };
   try {
@@ -3093,6 +3192,7 @@ async function saveSecMember(id, fd){
       members.push({ id: ref.id, ...data, ...extra });
     }
   } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  await writeMemberLog(__before ? "sửa" : "thêm", id || members[members.length - 1].id, data.fullName, __before, data);
   closeDialog();
   secMembers();
 }
@@ -3100,6 +3200,7 @@ async function saveSecMember(id, fd){
 async function deleteSecMember(id){
   const m = members.find(x => x.id === id);
   if (!m || !confirm(`Xóa “${m.fullName}” khỏi danh sách tín hữu? Các bản ghi lớp học, khóa học liên quan sẽ không tự xóa. Không thể hoàn tác.`)) return;
+  await writeMemberLog("xóa", id, m.fullName, m, null);
   try { await deleteDoc(doc(db, "members", id)); }
   catch (err){ return alertErr("Chưa xóa được: " + err.message); }
   members = members.filter(x => x.id !== id);
@@ -3860,7 +3961,7 @@ async function saveTnTeacher(id, fd){
   const raw = fd.get("name").trim();
   if (!raw) return alertErr("Vui lòng nhập họ tên.");
   const m = donorLabels().get(raw);
-  const email = (fd.get("email") || "").trim().toLowerCase();
+  const email = ((fd.get("email") || "").trim() || m?.email || "").toLowerCase();
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return alertErr("Email chưa đúng.");
   if (email && TN.teachers.some(t => t.email === email && t.id !== id)) return alertErr("Email này đã gán cho giáo viên khác.");
   const data = { personId: m ? m.id : null, personName: m ? m.fullName : raw, email, phone: (fd.get("phone") || "").trim(),
@@ -4688,7 +4789,7 @@ const rpPerOf = d => RP.mode === "month" ? Number(d.slice(5, 7)) : RP.mode === "
 const finPer = o => RP.mode === "month" ? o.month : RP.mode === "quarter" ? o.quarter : o.year;
 
 function finKeyOf(o, g, mById, hById){
-  if (g === "fund") return o.fund || "Chưa rõ quỹ";
+  if (g === "fund") return canonicalFund(o.fund) || "Chưa rõ quỹ";
   if (o.anonymous) return "Ẩn danh";
   const m = o.donorId ? mById.get(o.donorId) : null;
   if (g === "tribe"){
@@ -5032,7 +5133,7 @@ function applyUnits(){
 const nextTribeNum = () => Math.max(0, ...UNITS.filter(u => u.kind === "tribe").map(u => u.num || 0)) + 1;
 
 async function seedUnits(){
-  if (UNITS.length) return;
+  if (UNITS.length || !isAdmin()) return;
   try {
     const b = writeBatch(db);
     defaultUnits().forEach(u => b.set(doc(collection(db, "units")), { ...u, createdBy: me.name, createdAt: serverTimestamp() }));
@@ -5045,6 +5146,7 @@ async function seedUnits(){
 async function secUnits(){
   if (!["secretariat", "units"].includes(view) || SEC.tab !== "units") return;
   const has = UNITS.length > 0;
+  const dis = (has && isAdmin()) ? "" : "disabled";
   const tribes = UNITS.filter(u => u.kind === "tribe").sort((a, b) => a.num - b.num);
   const mins = UNITS.filter(u => u.kind === "ministry").sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
   const badge = u => u.active === false ? `<span class="badge">Ngừng</span>` : `<span class="badge ok">Đang dùng</span>`;
@@ -5053,20 +5155,39 @@ async function secUnits(){
     ${has ? "" : `<div class="hint warn" style="margin-bottom:12px">Đang dùng cấu hình mặc định. Bấm “Lưu cấu hình mặc định” để bắt đầu chỉnh sửa.</div>
       <div class="toolbar"><button class="btn" data-act="sec-unit-seed">Lưu cấu hình mặc định</button></div>`}
     <div class="section"><h2>Chi phái</h2>
-      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="tribe" ${has ? "" : "disabled"}>Thêm chi phái</button></div>
+      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="tribe" ${dis}>Thêm chi phái</button></div>
       ${tribes.length ? `<div class="scroll"><table><thead><tr><th>Số</th><th>Tên hiển thị</th><th>Trạng thái</th><th></th></tr></thead><tbody>
         ${tribes.map(u => `<tr><td>${u.num}</td><td>${esc(u.name)}</td><td>${badge(u)}</td>
-          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${has ? "" : "disabled"}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
+          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${dis}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">Chưa có chi phái.</div>`}
     </div>
     <div class="section"><h2>Ban ngành</h2>
-      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="ministry" ${has ? "" : "disabled"}>Thêm ban ngành</button></div>
+      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="ministry" ${dis}>Thêm ban ngành</button></div>
       ${mins.length ? `<div class="scroll"><table><thead><tr><th>Tên ban</th><th>Độ tuổi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
         ${mins.map(u => `<tr><td><strong>${esc(u.name)}</strong></td>
           <td>${u.ageMin != null ? `${u.ageMin}–${u.ageMax} tuổi` : "Không theo tuổi"}</td><td>${badge(u)}</td>
-          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${has ? "" : "disabled"}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
+          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${dis}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">Chưa có ban ngành.</div>`}
     </div>`;
+}
+
+async function vBanInfo(){
+  const unit = me.role === "tribe" ? UNITS.find(u => u.kind === "tribe" && u.num === me.tribe)
+    : (me.ministry ? UNITS.find(u => u.kind === "ministry" && u.name === me.ministry) : null);
+  $("#main").innerHTML = `<div class="head"><div><h1>Thông tin ${unit ? esc(unit.kind === "tribe" ? unit.name : "ban " + unit.name) : "đơn vị"}</h1>
+    <div class="sub">Giới thiệu, lịch sinh hoạt và lưu ý của đơn vị</div></div></div>
+    ${unit ? `<form id="fbi" class="qcard" data-id="${esc(unit.id)}" style="max-width:720px">
+      <label>Thông tin đơn vị<textarea name="info" rows="10" placeholder="Giới thiệu, lịch sinh hoạt, người liên hệ, lưu ý...">${esc(unit.info)}</textarea></label>
+      <div><button class="btn" type="submit">Lưu thông tin</button> <span class="flash" id="biMsg"></span></div></form>`
+    : `<div class="empty">Tài khoản chưa được gán ban hoặc chi phái. Liên hệ Ban Thư ký.</div>`}`;
+}
+async function saveBanInfo(id, fd){
+  try {
+    await updateDoc(doc(db, "units", id), { info: (fd.get("info") || "").trim(), updatedBy: me.name, updatedAt: serverTimestamp() });
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  const u = UNITS.find(x => x.id === id);
+  if (u) u.info = (fd.get("info") || "").trim();
+  if ($("#biMsg")) $("#biMsg").textContent = "Đã lưu.";
 }
 
 // Màn hình riêng cho Admin và Lãnh đạo; Ban Thư ký vẫn có tab trong module của mình
@@ -5141,6 +5262,104 @@ async function saveUnit(id, kind, fd){
 }
 const num_ = v => (v === "" || v == null) ? null : Number(v);
 
+/* ============ DANH MỤC CẤU HÌNH ============ */
+// Các danh mục dưới đây đọc từ Firestore (configLists). Nếu chưa có cấu hình thì dùng mặc định trong mã.
+let CFG_ALIASES = {};    // tên quỹ cũ -> tên quỹ hiện tại, để báo cáo gộp đúng các khoản đã ghi trước khi đổi tên
+const CFG_LISTS = [
+  { key: "funds", label: "Quỹ dâng hiến", arr: FUNDS },
+  { key: "methods", label: "Hình thức nhận tiền", arr: METHODS },
+  { key: "positions", label: "Chức danh (ban chấp sự, ban điều hành)", arr: POSITIONS },
+  { key: "measures", label: "Hình thức kỷ luật", arr: MEASURES },
+  { key: "relations", label: "Quan hệ trong hộ", arr: RELATIONS },
+  { key: "visitReasons", label: "Lý do thăm viếng", arr: VISIT_REASONS },
+  { key: "careStatus", label: "Tình trạng thân hữu", arr: CARE_STATUS },
+  { key: "courseTypes", label: "Loại khóa học", arr: COURSE_TYPES },
+  { key: "awards", label: "Giải thưởng thi", arr: EX_AWARDS },
+  { key: "tnProgTypes", label: "Loại chương trình Thiếu nhi Ấu", arr: TN_PROG_TYPES },
+  { key: "tnTeacherStatus", label: "Tình trạng giáo viên Thiếu nhi Ấu", arr: TN_TEACHER_STATUS },
+];
+const CFG_DEFAULTS = Object.fromEntries(CFG_LISTS.map(c => [c.key, [...c.arr]]));
+
+// Cập nhật tại chỗ để mọi nơi đang tham chiếu mảng đều thấy giá trị mới
+function setListInPlace(arr, items){ arr.splice(0, arr.length, ...items); }
+
+function applyCfgDoc(key, data){
+  const c = CFG_LISTS.find(x => x.key === key);
+  if (!c) return;
+  const items = Array.isArray(data?.items) && data.items.length ? data.items.map(String) : CFG_DEFAULTS[key];
+  setListInPlace(c.arr, items);
+  if (key === "funds") CFG_ALIASES = (data && typeof data.aliases === "object" && data.aliases) ? { ...data.aliases } : {};
+}
+
+async function loadCfg(){
+  try {
+    const snap = await getDocs(collection(db, "configLists"));
+    snap.docs.forEach(d => applyCfgDoc(d.id, d.data()));
+  } catch (err){ console.warn("Chưa tải được danh mục:", err.message); }
+}
+
+const canonicalFund = n => CFG_ALIASES[n] || n;
+
+function canEditCfg(key){
+  if (key === "funds" || key === "methods") return canEditFinance();
+  if (key === "visitReasons") return isAdmin() || me?.role === "visit";
+  if (key === "careStatus") return isAdmin() || me?.role === "care";
+  if (key === "courseTypes") return isAdmin() || mySSHead();
+  if (key === "tnProgTypes" || key === "tnTeacherStatus") return isAdmin() || (me?.role === "tn" && me?.tn === "head");
+  return isAdmin();   // chức danh, kỷ luật, quan hệ hộ, giải thưởng
+}
+const mySSHead = () => me?.ss === "head";
+const cfgOwner = key => ({ funds: "Ban Tài chính", methods: "Ban Tài chính", visitReasons: "Ban Thăm viếng",
+  careStatus: "Ban Chăm sóc", courseTypes: "Trưởng ban Trường Chúa Nhật", tnProgTypes: "Trưởng ban Thiếu nhi Ấu",
+  tnTeacherStatus: "Trưởng ban Thiếu nhi Ấu" })[key] || "Ban Thư ký";
+
+async function vCfg(){
+  $("#main").innerHTML = `<div class="head"><div><h1>Danh mục</h1>
+    <div class="sub">Tên quỹ, chức danh, lý do thăm, tình trạng... sửa được ngay, không cần sửa mã</div></div></div>
+    <div class="section">${CFG_LISTS.map(c => `<div class="cfg-item">
+      <div><strong>${esc(c.label)}</strong><div class="sub">${c.arr.map(esc).join(", ")}</div></div>
+      ${canEditCfg(c.key) ? `<button class="btn ghost sm" data-act="cfg-open" data-key="${c.key}">Sửa</button>`
+        : `<span class="sub">Do ${esc(cfgOwner(c.key))} quản lý</span>`}</div>`).join("")}</div>`;
+}
+
+const cfgRow = (v, orig) => `<div class="cfg-row"><input name="item" data-orig="${esc(orig ?? v)}" value="${esc(v)}" style="min-height:44px">
+  <button type="button" class="btn ghost sm" data-act="cfg-del">Bỏ</button></div>`;
+
+function openCfgEditor(key){
+  const c = CFG_LISTS.find(x => x.key === key);
+  if (!c || !canEditCfg(key)) return alertErr("Bạn không có quyền sửa danh mục này.");
+  openDialog(`<form class="dlg" id="fcfg" data-key="${esc(key)}">
+    <h2>${esc(c.label)}</h2>
+    ${key === "funds" ? `<div class="hint warn" style="margin-bottom:10px">Đổi tên quỹ chỉ áp dụng cho khoản dâng mới. Các khoản đã ghi giữ nguyên tên cũ trên biên nhận, còn báo cáo vẫn gộp đúng vào quỹ này.</div>` : ""}
+    <div id="cfgRows">${c.arr.map(v => cfgRow(v)).join("")}</div>
+    <div style="margin:10px 0"><button type="button" class="linkbtn" style="margin:0" data-act="cfg-add">+ Thêm dòng</button></div>
+    <div class="dlg-foot"><span class="spacer"></span><button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button></div></form>`);
+}
+
+async function saveCfg(key, fd){
+  const rows = [...document.querySelectorAll("#cfgRows input[name=item]")];
+  const vals = rows.map(r => r.value.trim()).filter(Boolean);
+  if (!vals.length) return alertErr("Danh mục cần ít nhất một mục.");
+  if (new Set(vals.map(fold)).size !== vals.length) return alertErr("Có mục bị trùng tên.");
+  const data = { items: vals, updatedBy: me.name, updatedAt: serverTimestamp() };
+  if (key === "funds"){
+    const aliases = { ...CFG_ALIASES };
+    rows.forEach(r => {
+      const orig = (r.dataset.orig || "").trim(), now = r.value.trim();
+      if (!orig || !now || orig === now) return;
+      Object.keys(aliases).forEach(k => { if (aliases[k] === orig) aliases[k] = now; });
+      aliases[orig] = now;
+    });
+    data.aliases = aliases;
+  }
+  try { await setDoc(doc(db, "configLists", key), data); }
+  catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  applyCfgDoc(key, data);
+  closeDialog();
+  if (view === "cfg") vCfg(); else if (view === "offerings" || view === "quick") vOfferings();
+}
+
 /* ============ SỰ KIỆN CHUNG ============ */
 document.addEventListener("focusin", e => { if (e.target.classList?.contains("qamt")) qActive = e.target; });
 
@@ -5198,6 +5417,13 @@ document.addEventListener("click", async e => {
       store.set("fund", act.dataset.f);
       return;
     }
+    if (a === "cfg-open") return openCfgEditor(act.dataset.key);
+    if (a === "cfg-add"){
+      document.querySelector("#cfgRows").insertAdjacentHTML("beforeend", cfgRow(""));
+      document.querySelector("#cfgRows .cfg-row:last-child input").focus();
+      return;
+    }
+    if (a === "cfg-del"){ act.closest(".cfg-row").remove(); return; }
     if (a === "pl-paid") return openPledgePaid(id);
     if (a === "pl-cancel") return cancelPledge(id);
     if (a === "pl-qr-print") return printQR();
@@ -5243,6 +5469,8 @@ document.addEventListener("submit", async e => {
   if (f.id === "ftnp")    return saveTnProg(f.dataset.id || null, fd);
   if (f.id === "fcare")   return saveCare(f.dataset.type, f.dataset.id || null, fd);
   if (f.id === "fsm")     return saveSecMember(f.dataset.id || null, fd);
+  if (f.id === "fbi")     return saveBanInfo(f.dataset.id, fd);
+  if (f.id === "fcfg")    return saveCfg(f.dataset.key, fd);
   if (f.id === "funit")   return saveUnit(f.dataset.id || null, f.dataset.kind, fd);
   if (f.id === "fexam")   return saveExam(f.dataset.id || null, fd);
   if (f.id === "fexe")    return addExamEntry(fd);
