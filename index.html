@@ -3332,8 +3332,11 @@ function groupsOf(m){
   const g = [];
   if (m?.ministry) g.push(m.ministry);
   const src = UNITS.length ? UNITS : defaultUnits();
+  // Nếu cấu hình đã lưu chưa có danh sách ban nguồn, dùng quy định chính thức
+  const overlayOf = u => Array.isArray(u.overlayFor) ? u.overlayFor
+    : (OFFICIAL_MINISTRIES.find(o => fold(o.name) === fold(u.name))?.overlayFor || []);
   if (m?.gender === "Nữ")
-    src.filter(u => u.kind === "ministry" && u.active !== false && (u.overlayFor || []).includes(m.ministry))
+    src.filter(u => u.kind === "ministry" && u.active !== false && overlayOf(u).includes(m.ministry))
       .forEach(u => g.push(u.name));
   return [...new Set(g)];
 }
