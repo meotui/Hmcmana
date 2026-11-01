@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ Tín Hữu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F2E9; --card:#FFFDF8; --ink:#1E2633; --muted:#6B6F78;
+    --line:#DCD5C6; --accent:#8A5A2B; --ok:#3F6B55; --danger:#9B3B2E;
+    --r:4px; color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#1A1D24; --card:#23272F; --ink:#EDE8DC; --muted:#A3A7B0;
+      --line:#3A3F4A; --accent:#D9A266; --ok:#7FB59A; --danger:#E08A7C; color-scheme:dark; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Be Vietnam Pro",system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5}
+  h1,h2,h3{font-family:Lora,Georgia,serif;font-weight:600;margin:0 0 .5rem;line-height:1.2}
+  h1{font-size:1.7rem} h2{font-size:1.25rem} h3{font-size:1.05rem}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .hidden{display:none!important}
+  .sub{color:var(--muted);font-size:.85rem}
+  .muted{color:var(--muted)}
+
+  /* Login */
+  #login{min-height:100%;display:grid;place-items:center;padding:24px}
+  .login-card{width:min(380px,100%);background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:32px}
+  .login-card p{color:var(--muted);margin:0 0 20px}
+  .err{color:var(--danger);font-size:.9rem;min-height:1.2em;margin:8px 0 0}
+
+  /* Shell */
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100%}
+  aside{background:var(--card);border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:4px}
+  .brand{font-family:Lora,serif;font-size:1.25rem;font-weight:700;margin-bottom:20px;padding-left:8px}
+  .brand small{display:block;font-family:"Be Vietnam Pro",sans-serif;font-weight:400;color:var(--muted);font-size:.8rem}
+  nav button{width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;padding:9px 12px;border-radius:0 var(--r) var(--r) 0;color:var(--muted);font-weight:500}
+  nav button:hover{color:var(--ink)}
+  nav button.on{color:var(--ink);border-left-color:var(--accent);background:var(--paper)}
+  .me{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;font-size:.85rem}
+  .linkbtn{background:none;border:0;color:var(--accent);padding:0;margin-top:6px;text-decoration:underline}
+  main{padding:32px clamp(16px,4vw,48px) 96px;max-width:1100px;width:100%}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+
+  /* Buttons & inputs */
+  .btn{background:var(--ink);color:var(--card);border:0;border-radius:var(--r);padding:9px 16px;font-weight:500}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+  .btn.sm{padding:5px 10px;font-size:.85rem}
+  input,select,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:9px 10px}
+  label{display:block;font-size:.85rem;color:var(--muted);font-weight:500}
+  label input,label select,label textarea{margin-top:4px;color:var(--ink)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .toolbar input{flex:1 1 220px;max-width:340px}
+  .toolbar select{width:auto;min-width:140px}
+
+  /* Tables / lists */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:.8rem;color:var(--muted);font-weight:600;background:var(--paper)}
+  tr:last-child td{border-bottom:0}
+  tr[data-open]{cursor:pointer} tr[data-open]:hover td{background:var(--paper)}
+  .scroll{overflow-x:auto}
+  .empty{padding:32px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+
+  /* Overview */
+  .figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;border:1px solid var(--line);border-radius:var(--r);background:var(--card);margin-bottom:28px}
+  .figures div{padding:18px 20px;border-right:1px solid var(--line)}
+  .figures div:last-child{border-right:0}
+  .figures b{display:block;font-family:Lora,serif;font-size:2rem;font-weight:600;line-height:1.1}
+  .figures span{color:var(--muted);font-size:.85rem}
+  .figures .lead b{font-size:2.8rem;color:var(--accent)}
+  .bars{display:grid;gap:10px}
+  .bar{display:grid;grid-template-columns:150px 1fr 56px;gap:12px;align-items:center;font-size:.9rem}
+  .bar i{display:block;height:10px;background:var(--accent);border-radius:2px;opacity:.85}
+  .bar .track{background:var(--line);border-radius:2px}
+  .section{margin-bottom:32px}
+
+  /* Households */
+  .tribe-block{margin-bottom:28px}
+  .hh-list{display:grid;gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+  .hh{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .hh:last-child{border-bottom:0}
+  .hh:hover{background:var(--paper)}
+
+  /* Dialog */
+  dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);padding:0;width:min(640px,calc(100% - 24px));max-height:90vh}
+  dialog::backdrop{background:rgba(20,22,28,.45)}
+  .dlg{padding:24px;overflow:auto;max-height:90vh}
+  .dlg-foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+  .dlg-foot .spacer{flex:1}
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  .form .full{grid-column:1/-1}
+  .hint{font-size:.8rem;color:var(--muted);margin-top:4px}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:.95rem;margin-bottom:16px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0}
+  .tag{display:inline-block;font-size:.78rem;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);margin-right:4px}
+  .inline-form{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:8px;align-items:end;margin-top:12px}
+  .inline-form label{margin:0}
+
+  /* Finance */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  .tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;color:var(--muted);font-weight:500;margin-bottom:-1px}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .matrix{overflow:visible}
+  .matrix th,.matrix td{white-space:nowrap}
+  .matrix th:first-child,.matrix td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
+  .matrix th:first-child,.matrix tfoot td:first-child{background:var(--paper)}
+  .matrix tfoot td{font-weight:600;background:var(--paper)}
+  .figures.fin div{min-width:0}
+  .figures.fin b{font-size:1.6rem;overflow-wrap:anywhere}
+  .figures.fin .lead b{font-size:1.9rem;color:var(--accent)}
+  .bars.fin .bar{grid-template-columns:76px 1fr 120px}
+  .bars.fin .bar span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  .check{display:flex;gap:8px;align-items:center}
+  .check input{width:auto;margin:0}
+  .newdonor{display:grid;gap:12px;border:1px dashed var(--accent);border-radius:var(--r);padding:14px}
+  .newdonor .form{gap:12px 16px}
+  .newdonor p{margin:0;font-size:.9rem}
+  .badge{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;vertical-align:middle}
+
+  /* Thu nhanh */
+  .qwrap{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:32px;align-items:start}
+  .quick{display:grid;gap:16px}
+  .quick .btn.big{padding:14px 18px;font-size:1.05rem}
+  .qline{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center}
+  .qline input,.qline select{margin:0}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+  .chip:hover{border-color:var(--accent)}
+  .qtotal{font-family:Lora,serif;font-size:1.4rem;min-height:2.6em}
+  .qtotal small{display:block;font-family:"Be Vietnam Pro",sans-serif;font-size:.85rem;color:var(--muted)}
+  .seg{display:flex;gap:20px}
+  .seg label{display:flex;gap:6px;align-items:center;color:var(--ink)}
+  .seg input{width:auto;margin:0}
+  .flash{color:var(--ok);font-weight:500;min-height:1.4em}
+  .today-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+  .today-row:last-child{border-bottom:0}
+
+  /* In biên nhận */
+  #printArea{display:none}
+  .rc{font-family:"Be Vietnam Pro",Arial,sans-serif;color:#000;background:#fff;line-height:1.35}
+  .paper-80 .rc{width:72mm;margin:0 auto;padding:4mm 0 10mm;font-size:12px}
+  .paper-58 .rc{width:48mm;margin:0 auto;padding:3mm 0 10mm;font-size:10.5px}
+  .paper-a5 .rc{width:100%;font-size:14px}
+  .rc h1{font-family:Lora,Georgia,serif;font-size:1.3em;text-align:center;margin:0 0 2px;color:#000}
+  .rc .c{text-align:center}
+  .rc .small{font-size:.85em}
+  .rc hr{border:0;border-top:1px dashed #000;margin:7px 0}
+  .rc .row{display:flex;justify-content:space-between;gap:8px}
+  .rc .tot{font-weight:700;font-size:1.15em}
+  .rc .stamp{text-align:center;font-weight:700;border:1px solid #000;padding:2px;margin:4px 0}
+  .rc .sig{display:none}
+  .paper-a5 .rc .sig{display:flex;justify-content:space-around;text-align:center;margin-top:40px}
+  @media print{
+    #app,#login,dialog{display:none!important}
+    html,body{background:#fff!important}
+    #printArea{display:block!important}
+  }
+
+  /* Trường Chúa Nhật */
+  .att-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+  .att-count{font-weight:600}
+  .att-list{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+  .att-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .att-row:last-child{border-bottom:0}
+  .att-row .nm small{display:block;color:var(--muted);font-size:.8rem}
+  .tg{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:.9rem;white-space:nowrap;cursor:pointer;margin:0;padding:6px}
+  .tg input{width:22px;height:22px;margin:0}
+  .matrix td small{color:var(--muted)}
+  .exp{display:inline-flex;gap:6px;flex-wrap:wrap}
+  .short{display:none}
+
+  .cred{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:12px;white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem;margin-top:8px}
+
+  /* Mobile */
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    aside{position:fixed;bottom:0;left:0;right:0;top:auto;flex-direction:row;padding:6px;border-right:0;border-top:1px solid var(--line);z-index:5}
+    .brand{display:none}
+    .me{display:flex;position:fixed;top:0;right:0;z-index:6;margin:0;padding:6px 12px;background:var(--card);border:0;border-bottom:1px solid var(--line);border-left:1px solid var(--line);border-radius:0 0 0 var(--r)}
+    #meName,#meRole{display:none}
+    .me .linkbtn{margin:0!important;font-size:.8rem}
+    nav{display:flex;width:100%;overflow-x:auto}
+    nav button{flex:1 0 auto;white-space:nowrap;text-align:center;border-left:0;border-top:3px solid transparent;border-radius:0;padding:8px 10px;font-size:.78rem}
+    nav button.on{border-top-color:var(--accent);border-left:0}
+    main{padding:44px 16px 110px}
+    .form{grid-template-columns:1fr}
+    .bar{grid-template-columns:110px 1fr 44px}
+    .inline-form{grid-template-columns:1fr}
+    .kv{grid-template-columns:1fr;gap:2px}
+    .kv dt{margin-top:8px}
+    .toolbar select,.toolbar input{max-width:none;width:100%}
+    #mlist th:nth-child(4),#mlist td:nth-child(4){display:none}
+    .bars.fin .bar{grid-template-columns:56px 1fr 96px}
+    .tabs button{flex:1;padding:9px 4px;font-size:.85rem}
+    .long{display:none}.short{display:inline}
+    .att-row{grid-template-columns:1fr 1fr}.att-row .nm{grid-column:1/-1}
+    .qwrap{grid-template-columns:1fr}
+    .qline{grid-template-columns:1fr 1fr auto}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+
+<!-- Đăng nhập -->
+<section id="login" class="hidden">
+  <form class="login-card" id="loginForm">
+    <h1>Sổ Tín Hữu</h1>
+    <p>Đăng nhập bằng tài khoản được cấp. Liên hệ thư ký nếu chưa có tài khoản.</p>
+    <label>Email<input type="email" id="email" required autocomplete="username"></label>
+    <div style="height:12px"></div>
+    <label>Mật khẩu<input type="password" id="pw" required autocomplete="current-password"></label>
+    <div style="height:18px"></div>
+    <button class="btn" type="submit" style="width:100%">Đăng nhập</button>
+    <p class="err" id="loginErr"></p>
+  </form>
+</section>
+
+<!-- Ứng dụng -->
+<div id="app" class="app hidden">
+  <aside>
+    <div class="brand">Sổ Tín Hữu<small id="churchName">Hội Thánh</small></div>
+    <nav>
+      <button data-act="nav" data-view="overview" data-view-btn data-roles="admin,tribe">Tổng quan</button>
+      <button data-act="nav" data-view="members" data-view-btn data-roles="admin,tribe">Thành viên</button>
+      <button data-act="nav" data-view="households" data-view-btn data-roles="admin,tribe">Hộ gia đình</button>
+      <button data-act="nav" data-view="courses" data-view-btn data-roles="admin,tribe">Khóa học</button>
+      <button data-act="nav" data-view="reports" data-view-btn data-roles="admin,tribe">Báo cáo</button>
+      <button data-act="nav" data-view="offerings" data-view-btn data-roles="admin,finance">Dâng hiến</button>
+      <button data-act="nav" data-view="sschool" data-view-btn><span class="long">Trường Chúa Nhật</span><span class="short">Trường CN</span></button>
+      <button data-act="nav" data-view="users" data-view-btn data-roles="admin">Tài khoản</button>
+    </nav>
+    <div class="me">
+      <div id="meName"></div>
+      <div class="sub" id="meRole"></div>
+      <button class="linkbtn" data-act="pw-reset">Đổi mật khẩu</button>
+      <button class="linkbtn" data-act="logout" style="margin-left:12px">Đăng xuất</button>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<dialog id="dlg"></dialog>
+<div id="printArea" aria-hidden="true"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, runTransaction, setDoc, writeBatch }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ============ CẤU HÌNH ============
+   Dán cấu hình từ Firebase Console > Project settings > Your apps */
+const firebaseConfig = {
+  apiKey: "AIzaSyABIvZ3Ic-IPbkSWOynAm0yff9cvdFy3c0",
+  authDomain: "hmcdigital-20f18.firebaseapp.com",
+  projectId: "hmcdigital-20f18",
+  storageBucket: "hmcdigital-20f18.firebasestorage.app",
+  messagingSenderId: "970947520625",
+  appId: "1:970947520625:web:55e7185ee39880f56513d0"
+};
+const CHURCH_NAME = "Hội Thánh Tin Lành";
+// Thông tin in trên biên nhận: sửa theo thực tế hội thánh
+const CHURCH_ADDRESS = "Địa chỉ hội thánh";
+const CHURCH_PHONE = "";
+const RECEIPT_FOOTER = "Cảm tạ Chúa. Xin Chúa ban phước cho tấm lòng dâng hiến của anh chị em.";
+const TRIBES = [1,2,3,4,5,6,7,8];
+const MINISTRIES = ["Thiếu nhi","Thiếu niên","Thanh niên","Nam giới","Phụ nữ","Cao niên"];
+const RELATIONS = ["Chủ hộ","Vợ","Chồng","Con","Cha","Mẹ","Anh/Chị/Em","Khác"];
+const COURSE_TYPES = ["Kinh Thánh","Bồi dưỡng","Khác"];
+// Danh mục quỹ: sửa theo thực tế hội thánh. Đổi tên về sau không làm mất dữ liệu cũ (báo cáo vẫn gom theo tên đã lưu).
+const FUNDS = ["Thập phân","Dâng hiến thường","Xây dựng","Truyền giáo","Từ thiện","Dâng đặc biệt","Khác"];
+const METHODS = ["Tiền mặt","Chuyển khoản"];
+const NOW = new Date().getFullYear();
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const secAuth = getAuth(initializeApp(firebaseConfig, "provision"));   // ứng dụng phụ, chỉ dùng để tạo tài khoản mới
+
+/* ============ TRẠNG THÁI ============ */
+let me = null;                 // {uid, name, role:'admin'|'tribe', tribe}
+let members = [], households = [], courses = [], enrollments = [];
+let offeringsByYear = {};      // cache: { 2026: [...] }, tải theo năm để tiết kiệm lượt đọc
+let view = "overview";
+
+/* ============ TIỆN ÍCH ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fold = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase();
+const num = v => (v === "" || v == null) ? null : Number(v);
+const opt = (v, sel, label) => `<option value="${esc(v)}" ${String(v)===String(sel ?? "") ? "selected":""}>${esc(label ?? v)}</option>`;
+const givenName = fullName => (fullName || "").trim().split(/\s+/).pop() || "";
+const ageOf = y => y ? NOW - y : null;
+const isAdmin = () => me?.role === "admin";
+const isFinance = () => me?.role === "finance";
+const canViewFinance = () => isAdmin() || isFinance();   // Mục sư, Thư ký: chỉ xem
+const canEditFinance = () => isFinance();                // Chỉ trưởng ban tài chính được nhập, sửa, xóa
+const tribeName = t => t ? `Chi phái ${t}` : "Chưa rõ";
+
+function ageGroup(y){
+  const a = ageOf(y);
+  if (a == null) return "Chưa có năm sinh";
+  if (a <= 11) return "Thiếu nhi (0–11)";
+  if (a <= 17) return "Thiếu niên (12–17)";
+  if (a <= 29) return "Thanh niên (18–29)";
+  if (a <= 59) return "Trưởng thành (30–59)";
+  return "Cao niên (60+)";
+}
+// Gợi ý ban theo tuổi và giới tính, người quản lý vẫn có thể đổi
+function suggestMinistry(y, gender){
+  const a = ageOf(y);
+  if (a == null) return "";
+  if (a <= 11) return "Thiếu nhi";
+  if (a <= 17) return "Thiếu niên";
+  if (a <= 29) return "Thanh niên";
+  if (a >= 60) return "Cao niên";
+  return gender === "Nữ" ? "Phụ nữ" : "Nam giới";
+}
+const sortByName = (a,b) => givenName(a.fullName).localeCompare(givenName(b.fullName), "vi") || a.fullName.localeCompare(b.fullName, "vi");
+
+function openDialog(html){ $("#dlg").innerHTML = html; $("#dlg").showModal(); }
+function closeDialog(){ $("#dlg").close(); }
+const alertErr = msg => alert(msg);
+
+/* ============ DỮ LIỆU ============ */
+async function loadData(){
+  if (isFinance()){
+    // Trưởng ban tài chính cần danh sách tín hữu để chọn người dâng; không tải hộ, khóa học
+    const m = await getDocs(collection(db, "members"));
+    members = m.docs.map(d => ({id:d.id, ...d.data()}));
+    households = []; courses = []; enrollments = [];
+    await loadOfferingYear(offFilter.year);
+    return;
+  }
+  if (me.role === "ss"){
+    // Trường Chúa Nhật: cần danh sách tín hữu để thêm vào lớp và danh sách khóa học
+    const [m, c] = await Promise.all([getDocs(collection(db, "members")), getDocs(collection(db, "courses"))]);
+    members = m.docs.map(d => ({id:d.id, ...d.data()}));
+    courses = c.docs.map(d => ({id:d.id, ...d.data()}));
+    households = []; enrollments = [];
+    return;
+  }
+  const scoped = col => isAdmin()
+    ? getDocs(collection(db, col))
+    : getDocs(query(collection(db, col), where("tribe", "==", me.tribe)));
+  const [m, h, c, e] = await Promise.all([
+    scoped("members"), scoped("households"), getDocs(collection(db,"courses")), scoped("enrollments")
+  ]);
+  members     = m.docs.map(d => ({id:d.id, ...d.data()}));
+  households  = h.docs.map(d => ({id:d.id, ...d.data()}));
+  courses     = c.docs.map(d => ({id:d.id, ...d.data()}));
+  enrollments = e.docs.map(d => ({id:d.id, ...d.data()}));
+}
+
+/* ============ ĐĂNG NHẬP ============ */
+let loginMsg = "";
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("#loginErr").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, $("#email").value.trim(), $("#pw").value);
+  } catch {
+    $("#loginErr").textContent = "Email hoặc mật khẩu chưa đúng.";
+  }
+});
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { showLogin(); return; }
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) {
+    await signOut(auth);
+    showLogin("Tài khoản chưa được cấp quyền. Liên hệ thư ký để được thêm.");
+    return;
+  }
+  const d = snap.data();
+  if (d.active === false) {
+    await signOut(auth);
+    showLogin("Tài khoản đã bị khóa. Liên hệ quản trị viên.");
+    return;
+  }
+  if (!["admin","tribe","finance","ss"].includes(d.role) || (d.role === "ss" && !["head","secretary","teacher"].includes(d.ss))) {
+    await signOut(auth);
+    showLogin("Tài khoản chưa được gán vai trò hợp lệ. Liên hệ thư ký.");
+    return;
+  }
+  if (d.role === "tribe" && !TRIBES.includes(Number(d.tribe))) {
+    await signOut(auth);
+    showLogin("Tài khoản chưa gán chi phái. Liên hệ thư ký.");
+    return;
+  }
+  me = { uid: user.uid, name: d.name || user.email, role: d.role, tribe: d.tribe ? Number(d.tribe) : null,
+         ss: ["head","secretary","teacher"].includes(d.ss) ? d.ss : null, email: String(user.email || "").toLowerCase() };
+  $("#meName").textContent = me.name;
+  const ssLabel = { head: "Trưởng ban Trường Chúa Nhật", secretary: "Thư ký Trường Chúa Nhật", teacher: "Giáo viên / trợ giảng" }[me.ss] || "";
+  $("#meRole").textContent = isAdmin() ? "Quản lý toàn hội thánh"
+    : isFinance() ? "Trưởng ban tài chính"
+    : me.role === "ss" ? ssLabel
+    : `Chi phái trưởng · ${tribeName(me.tribe)}` + (ssLabel ? ` · ${ssLabel}` : "");
+  document.querySelectorAll("[data-roles]").forEach(b =>
+    b.classList.toggle("hidden", !b.dataset.roles.split(",").includes(me.role)));
+  document.querySelector('[data-view="sschool"]').classList.toggle("hidden", !ssAny());
+  resetSchool();
+  offeringsByYear = {};
+  view = isFinance() ? "offerings" : me.role === "ss" ? "sschool" : "overview";
+  offTab = isFinance() ? "quick" : "list";
+  $("#churchName").textContent = CHURCH_NAME;
+  $("#login").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+  await loadData();
+  render();
+});
+
+function showLogin(msg = ""){
+  $("#app").classList.add("hidden");
+  $("#login").classList.remove("hidden");
+  $("#loginErr").textContent = msg;
+}
+
+/* ============ ĐIỀU HƯỚNG ============ */
+function render(){
+  let allowed = [];
+  if (isFinance()) allowed = ["offerings"];
+  else {
+    if (me.role === "admin" || me.role === "tribe") allowed.push("overview","members","households","courses","reports");
+    if (isAdmin()) allowed.push("offerings", "users");
+    if (ssAny()) allowed.push("sschool");
+  }
+  if (!allowed.includes(view)) view = allowed[0];
+  document.querySelectorAll("[data-view-btn]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  ({ overview: () => withRegular(vOverview), members: vMembers, households: vHouseholds, courses: vCourses,
+     reports: () => withRegular(vReports), offerings: vOfferings, sschool: vSchool, users: vUsers })[view]();
+}
+
+/* ============ TỔNG QUAN ============ */
+function vOverview(){
+  const total = members.length;
+  const nam = members.filter(m => m.gender === "Nam").length;
+  const nu = members.filter(m => m.gender === "Nữ").length;
+  const baptized = members.filter(m => m.baptismYear).length;
+  const noHH = members.filter(m => !m.householdId).length;
+  const noMin = members.filter(m => !m.ministry).length;
+  const pct = total ? Math.round(baptized / total * 100) : 0;
+
+  const byTribe = TRIBES.map(t => {
+    const ms = members.filter(m => m.tribe === t);
+    return { t, n: ms.length, hh: households.filter(h => h.tribe === t).length,
+             bap: ms.filter(m => m.baptismYear).length };
+  }).filter(r => isAdmin() || r.t === me.tribe);
+
+  const minCount = MINISTRIES.map(k => ({ k, n: members.filter(m => m.ministry === k).length }));
+  const maxMin = Math.max(1, ...minCount.map(x => x.n));
+
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Tổng quan</h1><div class="sub">${isAdmin() ? "Toàn hội thánh" : tribeName(me.tribe)} · cập nhật ${new Date().toLocaleDateString("vi-VN")}</div></div></div>
+
+    <div class="figures">
+      <div class="lead"><b>${total}</b><span>Tín hữu</span></div>
+      <div><b>${nam}</b><span>Nam</span></div>
+      <div><b>${nu}</b><span>Nữ</span></div>
+      <div><b>${households.length}</b><span>Hộ gia đình</span></div>
+      <div><b>${pct}%</b><span>Đã báp-têm (${baptized})</span></div>
+      <div><b>${noHH + noMin}</b><span>Cần bổ sung hộ/ban</span></div>
+    </div>
+
+    ${isAdmin() ? `<div class="section"><h2>Theo chi phái</h2>
+      <div class="scroll"><table><thead><tr><th>Chi phái</th><th>Tín hữu</th><th>Hộ</th><th>Đã báp-têm</th></tr></thead><tbody>
+      ${byTribe.map(r => `<tr><td>${tribeName(r.t)}</td><td>${r.n}</td><td>${r.hh}</td><td>${r.bap}</td></tr>`).join("")}
+      </tbody></table></div></div>` : ""}
+
+    <div class="section"><h2>Theo ban</h2>
+      <div class="bars">
+        ${minCount.map(x => `<div class="bar"><span>${x.k}</span>
+          <div class="track"><i style="width:${(x.n/maxMin*100).toFixed(1)}%;display:block"></i></div>
+          <span>${x.n}</span></div>`).join("")}
+        ${noMin ? `<div class="bar"><span class="muted">Chưa xếp ban</span><span></span><span>${noMin}</span></div>` : ""}
+      </div>
+    </div>`;
+}
+
+/* ============ THÀNH VIÊN ============ */
+function vMembers(){
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Thành viên</h1><div class="sub" id="count"></div></div>
+      <button class="btn" data-act="add-member">Thêm thành viên</button></div>
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Tìm theo tên">
+      ${isAdmin() ? `<select id="fTribe"><option value="">Mọi chi phái</option>${TRIBES.map(t=>opt(t,"",tribeName(t))).join("")}</select>` : ""}
+      <select id="fMin"><option value="">Mọi ban</option>${MINISTRIES.map(k=>opt(k,"",k)).join("")}<option value="none">Chưa xếp ban</option></select>
+      <select id="fType"><option value="">Mọi loại</option><option value="m">Tín hữu hội thánh</option><option value="v">Vãng lai</option></select>
+    </div>
+    <div id="mlist"></div>`;
+  $("#q").oninput = renderMemberList;
+  $("#fMin").onchange = renderMemberList;
+  $("#fType").onchange = renderMemberList;
+  if ($("#fTribe")) $("#fTribe").onchange = renderMemberList;
+  renderMemberList();
+}
+
+function renderMemberList(){
+  const q = fold($("#q")?.value.trim() || "");
+  const t = $("#fTribe") ? $("#fTribe").value : "";
+  const k = $("#fMin").value;
+  const ty = $("#fType").value;
+  const list = members
+    .filter(m => !q || fold(m.fullName).includes(q))
+    .filter(m => !t || m.tribe === Number(t))
+    .filter(m => !k || (k === "none" ? !m.ministry : m.ministry === k))
+    .filter(m => !ty || (ty === "v" ? m.memberType === "Vãng lai" : m.memberType !== "Vãng lai"))
+    .sort(sortByName);
+  $("#count").textContent = `${list.length} người`;
+  if (!list.length){
+    $("#mlist").innerHTML = `<div class="empty">${members.length ? "Không có thành viên khớp bộ lọc." : "Chưa có thành viên. Bấm “Thêm thành viên” để bắt đầu."}</div>`;
+    return;
+  }
+  $("#mlist").innerHTML = `<div class="scroll"><table>
+    <thead><tr><th>Họ và tên</th><th>Chi phái</th><th>Ban</th><th>Hộ</th><th>Báp-têm</th></tr></thead>
+    <tbody>${list.map(m => {
+      const hh = households.find(h => h.id === m.householdId);
+      return `<tr data-open="m:${m.id}">
+        <td><strong>${esc(m.fullName)}</strong>${m.memberType === "Vãng lai" ? `<span class="badge">Vãng lai</span>` : ""}<div class="sub">${esc(m.gender || "")}${m.birthYear ? " · sinh " + m.birthYear : ""}</div></td>
+        <td>${m.tribe ? tribeName(m.tribe) : "—"}</td>
+        <td>${esc(m.ministry || "Chưa xếp ban")}</td>
+        <td>${esc(hh?.name || "Chưa thuộc hộ")}</td>
+        <td>${m.baptismYear || "—"}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+
+function memberForm(m = {}){
+  const tribeVal = isAdmin() ? (m.tribe ?? "") : me.tribe;
+  const hhOptions = households
+    .filter(h => isAdmin() || h.tribe === me.tribe)
+    .sort((a,b) => a.name.localeCompare(b.name, "vi"))
+    .map(h => opt(h.id, m.householdId, `${h.name} (${tribeName(h.tribe)})`)).join("");
+  const sugg = suggestMinistry(m.birthYear, m.gender);
+  return `
+  <form class="dlg form" id="fm" data-id="${esc(m.id || "")}">
+    <h2 class="full">${m.id ? "Sửa thông tin" : "Thêm thành viên"}</h2>
+    <label class="full">Họ và tên *<input name="fullName" required value="${esc(m.fullName)}"></label>
+    <label>Giới tính<select name="gender">${["","Nam","Nữ"].map(g => opt(g, m.gender, g || "Chọn")).join("")}</select></label>
+    <label>Năm sinh<input type="number" name="birthYear" min="1900" max="${NOW}" value="${m.birthYear ?? ""}" id="byear"></label>
+    <label>Năm tin Chúa<input type="number" name="faithYear" min="1900" max="${NOW}" value="${m.faithYear ?? ""}"></label>
+    <label>Năm báp-têm<input type="number" name="baptismYear" min="1900" max="${NOW}" value="${m.baptismYear ?? ""}"></label>
+    <label>Loại<select name="memberType">${["Thành viên","Vãng lai"].map(t => opt(t, m.memberType || "Thành viên", t === "Vãng lai" ? "Tín hữu vãng lai" : "Tín hữu của hội thánh")).join("")}</select></label>
+    <label>Chi phái<select name="tribe" ${isAdmin() ? "" : "disabled"}>
+      ${isAdmin() ? `<option value="">Chưa rõ</option>` : ""}${TRIBES.map(t => opt(t, tribeVal, tribeName(t))).join("")}</select>
+      ${isAdmin() ? `<div class="hint">Bắt buộc với tín hữu của hội thánh; vãng lai có thể để trống.</div>` : ""}</label>
+    <label>Ban sinh hoạt<select name="ministry"><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, m.ministry, k)).join("")}</select>
+      <div class="hint" id="sugg">${sugg ? "Gợi ý theo tuổi: " + sugg : ""}</div></label>
+    <label>Hộ gia đình<select name="householdId"><option value="">Chưa thuộc hộ</option>${hhOptions}</select></label>
+    <label>Quan hệ trong hộ<select name="relation"><option value="">—</option>${RELATIONS.map(r => opt(r, m.relation, r)).join("")}</select></label>
+    <label class="full">Địa chỉ<input name="address" value="${esc(m.address)}"></label>
+    <label class="full">Ghi chú<textarea name="note" rows="2">${esc(m.note)}</textarea></label>
+    <div class="dlg-foot full">
+      ${m.id && isAdmin() ? `<button type="button" class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button>
+    </div>
+  </form>`;
+}
+
+function openMemberForm(m = {}){
+  openDialog(memberForm(m));
+  $("#byear").addEventListener("input", () => {
+    const f = $("#fm");
+    const s = suggestMinistry(num(f.birthYear.value), f.gender.value);
+    $("#sugg").textContent = s ? "Gợi ý theo tuổi: " + s : "";
+  });
+}
+
+async function saveMember(id, fd){
+  const tribe = isAdmin() ? num(fd.get("tribe")) : me.tribe;
+  const memberType = fd.get("memberType") === "Vãng lai" ? "Vãng lai" : "Thành viên";
+  if (memberType !== "Vãng lai" && !TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái cho tín hữu của hội thánh.");
+  const data = {
+    fullName: fd.get("fullName").trim(),
+    searchName: fold(fd.get("fullName")),
+    memberType,
+    gender: fd.get("gender") || null,
+    birthYear: num(fd.get("birthYear")),
+    faithYear: num(fd.get("faithYear")),
+    baptismYear: num(fd.get("baptismYear")),
+    tribe,
+    ministry: fd.get("ministry") || null,
+    householdId: fd.get("householdId") || null,
+    relation: fd.get("relation") || null,
+    address: fd.get("address").trim(),
+    note: fd.get("note").trim(),
+    updatedAt: serverTimestamp()
+  };
+  if (id) await updateDoc(doc(db, "members", id), data);
+  else    await addDoc(collection(db, "members"), { ...data, createdAt: serverTimestamp() });
+  await loadData(); closeDialog(); render();
+}
+
+function openMemberDetail(id){
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  const hh = households.find(h => h.id === m.householdId);
+  const fams = hh ? members.filter(x => x.householdId === hh.id && x.id !== m.id).sort(sortByName) : [];
+  const hist = enrollments.filter(e => e.memberId === m.id).sort((a,b) => (b.year||0)-(a.year||0));
+  const canEdit = isAdmin() || m.tribe === me.tribe;
+  openDialog(`
+  <div class="dlg">
+    <h2>${esc(m.fullName)}</h2>
+    <div class="sub" style="margin-bottom:16px">${esc(m.gender || "")}${m.relation ? " · " + esc(m.relation) : ""}</div>
+    <dl class="kv">
+      <dt>Năm sinh</dt><dd>${m.birthYear || "—"}${m.birthYear ? ` (${ageOf(m.birthYear)} tuổi)` : ""}</dd>
+      <dt>Tin Chúa</dt><dd>${m.faithYear || "—"}</dd>
+      <dt>Báp-têm</dt><dd>${m.baptismYear || "—"}</dd>
+      <dt>Chi phái</dt><dd>${m.tribe ? tribeName(m.tribe) : "—"}</dd>
+      <dt>Ban</dt><dd>${esc(m.ministry || "Chưa xếp ban")}</dd>
+      <dt>Địa chỉ</dt><dd>${esc(m.address || "—")}</dd>
+      <dt>Hộ</dt><dd>${hh ? `<a href="#" data-open="h:${hh.id}" class="linkbtn" style="margin:0">${esc(hh.name)}</a>` : "Chưa thuộc hộ"}</dd>
+      ${fams.length ? `<dt>Thành viên cùng hộ</dt><dd>${fams.map(f => esc(f.fullName) + (f.relation ? ` (${esc(f.relation)})` : "")).join("<br>")}</dd>` : ""}
+      ${m.note ? `<dt>Ghi chú</dt><dd>${esc(m.note)}</dd>` : ""}
+    </dl>
+
+    <h3>Lịch sử khóa học</h3>
+    ${hist.length ? `<table><thead><tr><th>Khóa</th><th>Năm</th><th>Kết quả</th><th></th></tr></thead><tbody>
+      ${hist.map(e => `<tr><td>${esc(e.courseName)}</td><td>${e.year || "—"}</td><td>${esc(e.result || "—")}</td>
+        <td>${canEdit ? `<button class="btn ghost sm" data-act="del-enroll" data-id="${e.id}">Xóa</button>` : ""}</td></tr>`).join("")}
+      </tbody></table>` : `<div class="muted" style="margin-bottom:8px">Chưa có khóa học nào được ghi nhận.</div>`}
+
+    ${canEdit && courses.length ? `
+    <form class="inline-form" id="fe" data-member="${m.id}">
+      <label>Khóa học<select name="courseId">${courses.map(c => opt(c.id, "", c.name)).join("")}</select></label>
+      <label>Năm<input type="number" name="year" value="${NOW}" min="1900" max="${NOW}"></label>
+      <label>Kết quả / ghi chú<input name="result" placeholder="VD: Hoàn thành"></label>
+      <button class="btn sm" type="submit">Ghi nhận</button>
+    </form>` : (canEdit ? `<div class="hint">Chưa có khóa học nào. Thư ký có thể thêm ở mục Khóa học.</div>` : "")}
+
+    <div class="dlg-foot">
+      ${isAdmin() || m.tribe === me.tribe ? `<button class="btn danger" data-act="del-member" data-id="${m.id}">Xóa</button>` : ""}
+      <span class="spacer"></span>
+      <button class="btn ghost" data-act="close">Đóng</button>
+      ${canEdit ? `<button class="btn" data-act="edit-member" data-id="${m.id}">Sửa</button>` : ""}
+    </div>
+  </div>`);
+}
+
+async function deleteMember(id){
+  const m = members.find(x => x.id === id);
+  if (!m || !confirm(`Xóa “${m.fullName}” khỏi sổ? Không thể hoàn tác.`)) return;
+  for (const e of enrollments.filter(e => e.memberId === id)) await deleteDoc(doc(db, "enrollments", e.id));
+  await deleteDoc(doc(db, "members", id));
+  await loadData(); closeDialog(); render();
+}
+
+/* ============ HỘ GIA ĐÌNH ============ */
+function vHouseholds(){
+  const groups = TRIBES.filter(t => isAdmin() || t === me.tribe).map(t => ({
+    t, hhs: households.filter(h => h.tribe === t).sort((a,b) => a.name.localeCompare(b.name,"vi"))
+  }));
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Hộ gia đình</h1><div class="sub">${households.length} hộ</div></div>
+      <button class="btn" data-act="add-household">Thêm hộ</button></div>
+    ${groups.map(g => `
+      <div class="tribe-block"><h2>${tribeName(g.t)}</h2>
+        ${g.hhs.length ? `<div class="hh-list">${g.hhs.map(h => {
+          const n = members.filter(m => m.householdId === h.id).length;
+          return `<div class="hh" data-open="h:${h.id}"><div><strong>${esc(h.name)}</strong>
+            <div class="sub">${esc(h.address || "Chưa có địa chỉ")}</div></div>
+            <div class="sub" style="white-space:nowrap">${n} thành viên</div></div>`;
+        }).join("")}</div>` : `<div class="empty">Chi phái này chưa có hộ nào.</div>`}
+      </div>`).join("")}`;
+}
+
+function householdForm(h = {}){
+  return `
+  <form class="dlg form" id="fh" data-id="${esc(h.id || "")}">
+    <h2 class="full">${h.id ? "Sửa hộ" : "Thêm hộ gia đình"}</h2>
+    <label class="full">Tên hộ *<input name="name" required value="${esc(h.name)}" placeholder="VD: Hộ anh Minh"></label>
+    <label>Chi phái *<select name="tribe" ${isAdmin() ? "required" : "disabled"}>
+      ${isAdmin() ? `<option value="">Chọn</option>` : ""}${TRIBES.map(t => opt(t, isAdmin() ? h.tribe : me.tribe, tribeName(t))).join("")}</select></label>
+    <label>Địa chỉ<input name="address" value="${esc(h.address)}"></label>
+    <label class="full">Ghi chú<textarea name="note" rows="2">${esc(h.note)}</textarea></label>
+    <div class="dlg-foot full">
+      ${h.id && isAdmin() ? `<button type="button" class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button>
+    </div>
+  </form>`;
+}
+function openHouseholdForm(h = {}){ openDialog(householdForm(h)); }
+
+async function saveHousehold(id, fd){
+  const tribe = isAdmin() ? num(fd.get("tribe")) : me.tribe;
+  if (!TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái.");
+  const data = { name: fd.get("name").trim(), tribe, address: fd.get("address").trim(),
+                 note: fd.get("note").trim(), updatedAt: serverTimestamp() };
+  if (id) await updateDoc(doc(db, "households", id), data);
+  else    await addDoc(collection(db, "households"), { ...data, createdAt: serverTimestamp() });
+  await loadData(); closeDialog(); render();
+}
+
+function openHouseholdDetail(id){
+  const h = households.find(x => x.id === id);
+  if (!h) return;
+  const ms = members.filter(m => m.householdId === id).sort((a,b) => {
+    const order = r => r === "Chủ hộ" ? 0 : 1;
+    return order(a.relation) - order(b.relation) || sortByName(a,b);
+  });
+  openDialog(`
+  <div class="dlg">
+    <h2>${esc(h.name)}</h2>
+    <div class="sub" style="margin-bottom:16px">${tribeName(h.tribe)}${h.address ? " · " + esc(h.address) : ""}</div>
+    ${h.note ? `<p class="muted">${esc(h.note)}</p>` : ""}
+    <h3>Thành viên (${ms.length})</h3>
+    ${ms.length ? `<table><tbody>${ms.map(m => `<tr data-open="m:${m.id}">
+      <td><strong>${esc(m.fullName)}</strong><div class="sub">${esc(m.relation || "")}</div></td>
+      <td>${m.birthYear || "—"}</td><td>${esc(m.ministry || "")}</td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">Hộ chưa có thành viên. Thêm thành viên vào hộ bên dưới.</div>`}
+    <div class="dlg-foot">
+      ${isAdmin() ? `<button class="btn danger" data-act="del-household" data-id="${h.id}">Xóa hộ</button>` : ""}
+      <span class="spacer"></span>
+      <button class="btn ghost" data-act="close">Đóng</button>
+      <button class="btn ghost" data-act="add-to-household" data-id="${h.id}">Thêm thành viên</button>
+      <button class="btn" data-act="edit-household" data-id="${h.id}">Sửa hộ</button>
+    </div>
+  </div>`);
+}
+
+async function deleteHousehold(id){
+  const h = households.find(x => x.id === id);
+  if (!h || !confirm(`Xóa hộ “${h.name}”? Thành viên trong hộ sẽ được chuyển sang “Chưa thuộc hộ”.`)) return;
+  for (const m of members.filter(m => m.householdId === id))
+    await updateDoc(doc(db, "members", m.id), { householdId: null, relation: null });
+  await deleteDoc(doc(db, "households", id));
+  await loadData(); closeDialog(); render();
+}
+
+/* ============ KHÓA HỌC ============ */
+function vCourses(){
+  const stats = courses.map(c => ({ ...c, n: new Set(enrollments.filter(e => e.courseId === c.id).map(e => e.memberId)).size }));
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Khóa học</h1><div class="sub">Kinh Thánh, bồi dưỡng và các khóa khác</div></div>
+      ${isAdmin() ? `<button class="btn" data-act="add-course">Thêm khóa học</button>` : ""}</div>
+    ${stats.length ? `<div class="scroll"><table>
+      <thead><tr><th>Khóa học</th><th>Loại</th><th>Năm</th><th>Số người tham gia</th></tr></thead>
+      <tbody>${stats.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.type || "—")}</td><td>${c.year || "—"}</td><td>${c.n}</td></tr>`).join("")}</tbody>
+    </table></div>` : `<div class="empty">Chưa có khóa học nào.${isAdmin() ? " Bấm “Thêm khóa học”." : ""}</div>`}`;
+}
+
+function openCourseForm(){
+  openDialog(`
+  <form class="dlg form" id="fc">
+    <h2 class="full">Thêm khóa học</h2>
+    <label class="full">Tên khóa học *<input name="name" required placeholder="VD: Học Kinh Thánh cơ bản"></label>
+    <label>Loại<select name="type">${COURSE_TYPES.map(t => opt(t, "", t)).join("")}</select></label>
+    <label>Năm<input type="number" name="year" value="${NOW}" min="1900" max="${NOW}"></label>
+    <div class="dlg-foot full"><span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button></div>
+  </form>`);
+}
+
+async function saveCourse(fd){
+  await addDoc(collection(db, "courses"), {
+    name: fd.get("name").trim(), type: fd.get("type"), year: num(fd.get("year")), createdAt: serverTimestamp()
+  });
+  await loadData(); closeDialog(); render();
+}
+
+async function enroll(memberId, fd){
+  const m = members.find(x => x.id === memberId);
+  const c = courses.find(x => x.id === fd.get("courseId"));
+  if (!m || !c) return;
+  await addDoc(collection(db, "enrollments"), {
+    memberId, memberName: m.fullName, tribe: m.tribe,
+    courseId: c.id, courseName: c.name, courseType: c.type || null,
+    year: num(fd.get("year")), result: fd.get("result").trim() || null, createdAt: serverTimestamp()
+  });
+  await loadData(); openMemberDetail(memberId); render();
+}
+
+async function deleteEnroll(id){
+  if (!confirm("Xóa ghi nhận khóa học này?")) return;
+  await deleteDoc(doc(db, "enrollments", id));
+  const memberId = enrollments.find(e => e.id === id)?.memberId;
+  await loadData();
+  if (memberId && members.some(m => m.id === memberId)) openMemberDetail(memberId); else closeDialog();
+  render();
+}
+
+/* ============ BÁO CÁO ============ */
+function vReports(){
+  const minRows = [...MINISTRIES, "Chưa xếp ban"].map(k => {
+    const ms = k === "Chưa xếp ban" ? members.filter(m => !m.ministry) : members.filter(m => m.ministry === k);
+    return { k, n: ms.length, nam: ms.filter(m => m.gender === "Nam").length, nu: ms.filter(m => m.gender === "Nữ").length };
+  });
+  const ageRows = ["Thiếu nhi (0–11)","Thiếu niên (12–17)","Thanh niên (18–29)","Trưởng thành (30–59)","Cao niên (60+)","Chưa có năm sinh"]
+    .map(g => ({ g, n: members.filter(m => ageGroup(m.birthYear) === g).length }));
+  const bapRows = TRIBES.filter(t => isAdmin() || t === me.tribe).map(t => {
+    const ms = members.filter(m => m.tribe === t);
+    return { t, n: ms.length, bap: ms.filter(m => m.baptismYear).length, tin: ms.filter(m => m.faithYear).length };
+  });
+  const courseRows = courses.map(c => ({ ...c, n: new Set(enrollments.filter(e => e.courseId === c.id).map(e => e.memberId)).size }));
+
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Báo cáo</h1><div class="sub">Số liệu tổng hợp từ sổ hiện tại</div></div>
+      <button class="btn ghost" data-act="export">Xuất Excel (CSV)</button></div>
+
+    <div class="section"><h2>Theo ban</h2>
+      <div class="scroll"><table><thead><tr><th>Ban</th><th>Tổng</th><th>Nam</th><th>Nữ</th></tr></thead>
+      <tbody>${minRows.map(r => `<tr><td>${r.k}</td><td>${r.n}</td><td>${r.nam}</td><td>${r.nu}</td></tr>`).join("")}</tbody></table></div></div>
+
+    <div class="section"><h2>Theo độ tuổi</h2>
+      <div class="scroll"><table><thead><tr><th>Nhóm tuổi</th><th>Số người</th></tr></thead>
+      <tbody>${ageRows.map(r => `<tr><td>${r.g}</td><td>${r.n}</td></tr>`).join("")}</tbody></table></div></div>
+
+    <div class="section"><h2>Tin Chúa và báp-têm</h2>
+      <div class="scroll"><table><thead><tr><th>Chi phái</th><th>Tổng</th><th>Đã tin Chúa</th><th>Đã báp-têm</th></tr></thead>
+      <tbody>${bapRows.map(r => `<tr><td>${tribeName(r.t)}</td><td>${r.n}</td><td>${r.tin}</td><td>${r.bap}</td></tr>`).join("")}</tbody></table></div></div>
+
+    <div class="section"><h2>Tham gia khóa học</h2>
+      ${courseRows.length ? `<div class="scroll"><table><thead><tr><th>Khóa học</th><th>Năm</th><th>Số người</th></tr></thead>
+      <tbody>${courseRows.map(c => `<tr><td>${esc(c.name)}</td><td>${c.year || "—"}</td><td>${c.n}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">Chưa có dữ liệu khóa học.</div>`}</div>`;
+}
+
+function exportCSV(){
+  const rows = [["Họ và tên","Giới tính","Năm sinh","Năm tin Chúa","Năm báp-têm","Chi phái","Ban","Hộ","Quan hệ","Địa chỉ","Ghi chú"]];
+  members.slice().sort(sortByName).forEach(m => {
+    const hh = households.find(h => h.id === m.householdId);
+    rows.push([m.fullName, m.gender, m.birthYear, m.faithYear, m.baptismYear, m.tribe, m.ministry, hh?.name, m.relation, m.address, m.note]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: `thanh-vien-${new Date().toISOString().slice(0,10)}.csv` });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============ DÂNG HIẾN ============ */
+let offTab = "list";                                   // "list" | "report"
+let offFilter = { year: NOW, month: "", fund: "", q: "" };
+let repMode = "month", repYear = NOW;                  // "month" | "quarter" | "year"
+
+// Thống kê (Tổng quan, Báo cáo) chỉ tính tín hữu của hội thánh; vãng lai xem ở danh sách thành viên
+function withRegular(fn){
+  const all = members;
+  members = all.filter(m => m.memberType !== "Vãng lai");
+  try { fn(); } finally { members = all; }
+}
+const money = n => Number(n || 0).toLocaleString("vi-VN");
+const quarterOf = m => Math.ceil(m / 3);
+const fmtDate = s => String(s || "").split("-").reverse().join("/");
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
+const donorKey = o => o.donorId || "n:" + fold(o.donorName);
+const allLoadedOfferings = () => Object.values(offeringsByYear).flat();
+
+async function loadOfferingYear(y, force = false){
+  if (!canViewFinance()) return [];
+  if (!force && offeringsByYear[y]) return offeringsByYear[y];
+  const snap = await getDocs(query(collection(db, "offerings"), where("year", "==", y)));
+  offeringsByYear[y] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return offeringsByYear[y];
+}
+
+async function vOfferings(){
+  if (offTab === "quick" && !canEditFinance()) offTab = "list";
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Dâng hiến</h1>
+      <div class="sub">${canEditFinance() ? "Trưởng ban tài chính cập nhật và quản lý" : "Chỉ xem"}</div></div>
+      ${canEditFinance() ? `<button class="btn ghost" data-act="add-offering">Nhập bổ sung</button>` : ""}</div>
+    <div class="tabs">
+      ${canEditFinance() ? `<button data-act="off-tab" data-tab="quick" class="${offTab === "quick" ? "on" : ""}">Thu nhanh</button>` : ""}
+      <button data-act="off-tab" data-tab="list" class="${offTab === "list" ? "on" : ""}">Danh sách</button>
+      <button data-act="off-tab" data-tab="report" class="${offTab === "report" ? "on" : ""}">Báo cáo tài chính</button>
+    </div>
+    <div id="offbody"><div class="empty">Đang tải dữ liệu…</div></div>`;
+  try {
+    if (offTab === "quick") await loadOfferingYear(NOW);
+    else if (offTab === "list") await loadOfferingYear(offFilter.year);
+    else await Promise.all(reportYears().map(y => loadOfferingYear(y)));
+    if (view !== "offerings") return;
+    offTab === "quick" ? offQuick() : offTab === "list" ? offList() : offReport();
+  } catch (err) {
+    if ($("#offbody")) $("#offbody").innerHTML = `<div class="empty">Không tải được dữ liệu dâng hiến (${esc(err.message)}). Kiểm tra quyền truy cập trong Firestore Rules.</div>`;
+  }
+}
+
+/* ---- Danh sách ---- */
+function offYears(){
+  const s = new Set([NOW, offFilter.year, repYear]);
+  for (let y = NOW; y >= NOW - 5; y--) s.add(y);
+  return [...s].sort((a, b) => b - a);
+}
+
+function offList(){
+  $("#offbody").innerHTML = `
+    <div class="toolbar">
+      <select id="oY">${offYears().map(y => opt(y, offFilter.year, "Năm " + y)).join("")}</select>
+      <select id="oM"><option value="">Cả năm</option>${[...Array(12)].map((_, i) => opt(i + 1, offFilter.month, "Tháng " + (i + 1))).join("")}</select>
+      <select id="oF"><option value="">Mọi quỹ</option>${FUNDS.map(f => opt(f, offFilter.fund, f)).join("")}</select>
+      <input id="oQ" type="search" placeholder="Tìm người dâng" value="${esc(offFilter.q)}">
+      <button class="btn ghost sm" data-act="export-offerings">Xuất CSV</button>
+    </div>
+    <div id="offsum"></div><div id="offtable"></div>`;
+  $("#oY").onchange = e => { offFilter.year = Number(e.target.value); vOfferings(); };
+  $("#oM").onchange = e => { offFilter.month = e.target.value; renderOffTable(); };
+  $("#oF").onchange = e => { offFilter.fund = e.target.value; renderOffTable(); };
+  $("#oQ").oninput  = e => { offFilter.q = e.target.value; renderOffTable(); };
+  renderOffTable();
+}
+
+function filteredOfferings(){
+  const q = fold(offFilter.q.trim());
+  return (offeringsByYear[offFilter.year] || [])
+    .filter(o => !offFilter.month || o.month === Number(offFilter.month))
+    .filter(o => !offFilter.fund || o.fund === offFilter.fund)
+    .filter(o => !q || fold(o.donorName).includes(q) || String(o.receiptNo || "").includes(q))
+    .sort((a, b) => b.date.localeCompare(a.date) || String(a.donorName).localeCompare(String(b.donorName), "vi"));
+}
+
+function renderOffTable(){
+  const list = filteredOfferings();
+  const live = list.filter(o => !o.voided);
+  const total = live.reduce((s, o) => s + o.amount, 0);
+  const donors = new Set(live.filter(o => !o.anonymous).map(donorKey)).size;
+  $("#offsum").innerHTML = `
+    <div class="figures fin" style="margin-bottom:20px">
+      <div class="lead"><b>${money(total)} ₫</b><span>Tổng dâng hiến</span></div>
+      <div><b>${live.length}</b><span>Lượt dâng</span></div>
+      <div><b>${donors}</b><span>Người dâng có ghi tên</span></div>
+    </div>`;
+  if (!list.length){
+    const hasYear = (offeringsByYear[offFilter.year] || []).length;
+    $("#offtable").innerHTML = `<div class="empty">${hasYear ? "Không có giao dịch khớp bộ lọc." : `Chưa có ghi nhận nào trong năm ${offFilter.year}.${canEditFinance() ? " Bấm “Ghi nhận dâng hiến” để bắt đầu." : ""}`}</div>`;
+    return;
+  }
+  const shown = list.slice(0, 500);
+  $("#offtable").innerHTML = `<div class="scroll"><table>
+    <thead><tr><th>Ngày</th><th>Người dâng</th><th>Quỹ</th><th class="num">Số tiền (₫)</th><th>Hình thức</th></tr></thead>
+    <tbody>${shown.map(o => `<tr data-open="o:${o.id}" ${o.voided ? 'style="opacity:.5;text-decoration:line-through"' : ""}>
+      <td>${fmtDate(o.date)}${o.receiptNo ? `<div class="sub">BN ${esc(o.receiptNo)}${o.voided ? ", đã hủy" : ""}</div>` : ""}</td>
+      <td>${o.anonymous ? `<span class="muted">Ẩn danh</span>` : esc(o.donorName)}${o.note ? `<div class="sub">${esc(o.note)}</div>` : ""}</td>
+      <td>${esc(o.fund)}</td><td class="num">${money(o.amount)}</td><td>${esc(o.method || "—")}</td></tr>`).join("")}
+    </tbody></table></div>
+    ${list.length > shown.length ? `<div class="hint" style="margin-top:8px">Đang hiển thị ${shown.length}/${list.length} giao dịch mới nhất. Thu hẹp bộ lọc để xem phần còn lại; tổng tiền ở trên đã tính đủ.</div>` : ""}`;
+}
+
+/* ---- Nhập liệu ---- */
+function donorLabels(){
+  const map = new Map();
+  members.slice().sort(sortByName).forEach(m => {
+    let label = `${m.fullName} (Chi phái ${m.tribe || "?"}${m.birthYear ? ", sinh " + m.birthYear : ""})`;
+    if (map.has(label)){ let i = 2; while (map.has(`${label} #${i}`)) i++; label = `${label} #${i}`; }
+    map.set(label, m);
+  });
+  return map;
+}
+
+function offeringForm(o = {}){
+  const labels = donorLabels();
+  let donorText = o.anonymous ? "" : (o.donorName || "");
+  if (o.donorId) for (const [l, m] of labels) if (m.id === o.donorId){ donorText = l; break; }
+  return `
+  <form class="dlg form" id="fo" data-id="${esc(o.id || "")}">
+    <h2 class="full">${o.id ? "Sửa dâng hiến" : "Nhập bổ sung dâng hiến"}</h2>
+    ${o.id ? "" : `<p class="hint full" style="margin:0">Nhập bổ sung không phát hành biên nhận. Khi nhận tiền trực tiếp, dùng tab Thu nhanh.</p>`}
+    <label>Ngày dâng *<input type="date" name="date" required value="${esc(o.date || todayStr())}"></label>
+    <label>Quỹ *<select name="fund" required>${FUNDS.map(f => opt(f, o.fund, f)).join("")}</select></label>
+    <label class="full">Người dâng
+      <input name="donor" list="donors" autocomplete="off" value="${esc(donorText)}" placeholder="Gõ tên để chọn từ danh sách tín hữu">
+      <datalist id="donors">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
+      <div class="hint">Chọn từ danh sách để gắn với hồ sơ tín hữu. Gõ tên tự do nếu là khách hoặc người ngoài hội thánh.</div></label>
+    <label class="full check"><input type="checkbox" name="anon" ${o.anonymous ? "checked" : ""}> Dâng ẩn danh, không ghi tên</label>
+    <div class="full newdonor hidden" id="newDonor">
+      <p><strong>Chưa có trong danh sách tín hữu.</strong> Bổ sung người này để lần sau chọn lại được.</p>
+      <label class="check"><input type="checkbox" name="addMember" ${o.id ? "" : "checked"}> Thêm vào danh sách tín hữu</label>
+      <div class="form">
+        <label>Loại<select name="mType" id="mType">
+          <option value="Vãng lai">Tín hữu vãng lai</option>
+          <option value="Thành viên">Tín hữu của hội thánh</option></select></label>
+        <label>Chi phái<select name="nTribe" id="nTribe"><option value="">Chưa rõ / không thuộc</option>${TRIBES.map(t => `<option value="${t}">${tribeName(t)}</option>`).join("")}</select></label>
+        <label class="full">Ban ngành<select name="nMinistry"><option value="">Chưa xếp</option>${MINISTRIES.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join("")}</select>
+          <div class="hint">Chọn chi phái là bắt buộc nếu là tín hữu của hội thánh. Tín hữu vãng lai có thể để trống.</div></label>
+      </div>
+    </div>
+    <label>Số tiền (₫) *<input type="number" name="amount" required min="1" step="1" inputmode="numeric" value="${o.amount ?? ""}"></label>
+    <label>Hình thức<select name="method">${METHODS.map(m => opt(m, o.method, m)).join("")}</select></label>
+    <label class="full">Ghi chú<input name="note" value="${esc(o.note)}"></label>
+    <div class="dlg-foot full">
+      ${o.id ? `<button type="button" class="btn danger" data-act="del-offering" data-id="${o.id}">Xóa</button>` : ""}
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      ${o.id ? "" : `<button type="submit" class="btn ghost" data-next="1">Lưu và thêm tiếp</button>`}
+      <button type="submit" class="btn">Lưu</button>
+    </div>
+  </form>`;
+}
+function openOfferingForm(o = {}){
+  openDialog(offeringForm(o));
+  const f = $("#fo");
+  if (!f) return;
+  const labels = donorLabels();
+  const sync = () => {
+    const t = f.donor.value.trim();
+    const show = !f.anon.checked && !!t && !labels.has(t);
+    $("#newDonor").classList.toggle("hidden", !show);
+    $("#nTribe").required = show && f.addMember.checked && f.mType.value === "Thành viên";
+  };
+  f.addEventListener("input", sync);
+  f.addEventListener("change", sync);
+  sync();
+}
+
+function openOfferingDetail(id){
+  const o = allLoadedOfferings().find(x => x.id === id);
+  if (!o) return;
+  if (o.receiptNo && canEditFinance()) return openReceiptDetail(o);
+  if (canEditFinance()) return openOfferingForm(o);
+  openDialog(`
+  <div class="dlg">
+    <h2>Chi tiết dâng hiến</h2>
+    <dl class="kv">
+      <dt>Ngày dâng</dt><dd>${fmtDate(o.date)}${o.time ? " " + esc(o.time) : ""}</dd>
+      ${o.receiptNo ? `<dt>Biên nhận</dt><dd>${esc(o.receiptNo)}${o.voided ? " (đã hủy)" : ""}</dd>` : ""}
+      <dt>Người dâng</dt><dd>${o.anonymous ? "Ẩn danh" : esc(o.donorName)}</dd>
+      <dt>Quỹ</dt><dd>${esc(o.fund)}</dd>
+      <dt>Số tiền</dt><dd>${money(o.amount)} ₫</dd>
+      <dt>Hình thức</dt><dd>${esc(o.method || "—")}</dd>
+      ${o.note ? `<dt>Ghi chú</dt><dd>${esc(o.note)}</dd>` : ""}
+      <dt>Người nhập</dt><dd>${esc(o.updatedBy || o.createdBy || "—")}</dd>
+    </dl>
+    <div class="dlg-foot"><span class="spacer"></span><button class="btn ghost" data-act="close">Đóng</button></div>
+  </div>`);
+}
+
+// Xác định người dâng từ form (chọn tín hữu, gõ tên tự do, ẩn danh hoặc thêm mới vào danh sách). Trả về null nếu thiếu dữ liệu.
+async function resolveDonor(fd){
+  if (fd.get("anon") === "on") return { donorId: null, donorName: "Ẩn danh", tribe: null, anon: true };
+  const text = (fd.get("donor") || "").trim();
+  if (!text){ alertErr("Vui lòng nhập người dâng hoặc chọn dâng ẩn danh."); return null; }
+  const m = donorLabels().get(text);
+  if (m) return { donorId: m.id, donorName: m.fullName, tribe: m.tribe || null, anon: false };
+  const out = { donorId: null, donorName: text, tribe: null, anon: false };
+  if (fd.get("addMember") === "on"){
+    const mType = fd.get("mType") || "Vãng lai";
+    const nTribe = num(fd.get("nTribe"));
+    if (mType === "Thành viên" && !TRIBES.includes(nTribe)){ alertErr("Vui lòng chọn chi phái cho tín hữu mới."); return null; }
+    const dup = members.find(x => fold(x.fullName) === fold(text));
+    if (dup && !confirm(`Đã có “${dup.fullName}” trong danh sách tín hữu. Bấm Hủy để quay lại và chọn người đó, hoặc OK để vẫn thêm một người mới trùng tên.`)) return null;
+    const base = {
+      fullName: text, searchName: fold(text), gender: null, birthYear: null, faithYear: null, baptismYear: null,
+      tribe: TRIBES.includes(nTribe) ? nTribe : null, ministry: fd.get("nMinistry") || null,
+      householdId: null, relation: null, address: "", note: "Thêm từ mục Dâng hiến", memberType: mType
+    };
+    try {
+      const ref = await addDoc(collection(db, "members"), { ...base, createdBy: me.name, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      members.push({ id: ref.id, ...base });
+      out.donorId = ref.id; out.tribe = base.tribe;
+    } catch (err){ alertErr("Chưa thêm được tín hữu mới: " + err.message); return null; }
+  }
+  return out;
+}
+
+async function saveOffering(id, fd, next){
+  if (!canEditFinance()) return alertErr("Chỉ trưởng ban tài chính được cập nhật dâng hiến.");
+  const date = fd.get("date");
+  const amount = Number(fd.get("amount"));
+  if (!date) return alertErr("Vui lòng chọn ngày dâng.");
+  if (!(amount > 0)) return alertErr("Số tiền phải lớn hơn 0.");
+  const dn = await resolveDonor(fd);
+  if (!dn) return;
+  const { donorId, donorName, tribe, anon } = dn;
+  const [y, mo] = date.split("-").map(Number);
+  const data = {
+    date, year: y, month: mo, quarter: quarterOf(mo),
+    donorId, donorName, tribe, anonymous: anon,
+    amount, fund: fd.get("fund"), method: fd.get("method"),
+    note: fd.get("note").trim(), updatedBy: me.name, updatedAt: serverTimestamp()
+  };
+  try {
+    const old = id ? allLoadedOfferings().find(o => o.id === id) : null;
+    if (id) await updateDoc(doc(db, "offerings", id), data);
+    else    await addDoc(collection(db, "offerings"), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+    await loadOfferingYear(y, true);
+    if (old && old.year !== y) await loadOfferingYear(old.year, true);
+  } catch (err) {
+    return alertErr("Chưa lưu được: " + err.message);
+  }
+  closeDialog();
+  offTab = "list"; offFilter.year = y;
+  render();
+  if (next) openOfferingForm({ date, fund: data.fund, method: data.method });
+}
+
+async function deleteOffering(id){
+  const o = allLoadedOfferings().find(x => x.id === id);
+  if (!o || !confirm(`Xóa khoản dâng ${money(o.amount)} ₫ ngày ${fmtDate(o.date)}? Không thể hoàn tác.`)) return;
+  try {
+    await deleteDoc(doc(db, "offerings", id));
+    await loadOfferingYear(o.year, true);
+  } catch (err) { return alertErr("Chưa xóa được: " + err.message); }
+  closeDialog(); render();
+}
+
+/* ---- Biên nhận: số tự động, thu nhanh, in ngay ---- */
+const store = {
+  get(k, d){ try { return localStorage.getItem(k) || d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
+const PAPERS = { "80": "Máy in phiếu 80mm", "58": "Máy in phiếu 58mm", "a5": "Giấy A5 (máy in thường)" };
+let qFlash = "", qActive = null;
+
+// Đọc số tiền bằng chữ tiếng Việt
+function vnWords(n){
+  n = Math.round(Number(n) || 0);
+  if (n <= 0) return "Không đồng";
+  const dg = ["không","một","hai","ba","bốn","năm","sáu","bảy","tám","chín"];
+  const triple = (x, full) => {
+    const tr = Math.floor(x / 100), ch = Math.floor(x % 100 / 10), dv = x % 10, out = [];
+    if (full || tr > 0) out.push(dg[tr], "trăm");
+    if (ch > 1){
+      out.push(dg[ch], "mươi");
+      if (dv === 1) out.push("mốt"); else if (dv === 4) out.push("tư"); else if (dv === 5) out.push("lăm"); else if (dv > 0) out.push(dg[dv]);
+    } else if (ch === 1){
+      out.push("mười");
+      if (dv === 5) out.push("lăm"); else if (dv > 0) out.push(dg[dv]);
+    } else if (dv > 0){
+      if (full || tr > 0) out.push("lẻ");
+      out.push(dg[dv]);
+    }
+    return out.join(" ");
+  };
+  const below = (x, started) => {
+    const out = [];
+    for (const [g, label] of [[Math.floor(x / 1e6) % 1000, "triệu"], [Math.floor(x / 1e3) % 1000, "nghìn"], [x % 1000, ""]]){
+      if (!g) continue;
+      out.push((triple(g, started) + " " + label).trim());
+      started = true;
+    }
+    return out.join(" ");
+  };
+  const read = x => x >= 1e9 ? read(Math.floor(x / 1e9)) + " tỷ" + (x % 1e9 ? " " + below(x % 1e9, true) : "") : below(x, false);
+  const t = read(n) + " đồng";
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+const receiptLines = no => allLoadedOfferings().filter(o => o.receiptNo === no).sort((a, b) => String(a.fund).localeCompare(String(b.fund), "vi"));
+
+// Cấp số biên nhận và ghi các dòng dâng hiến trong cùng một giao dịch: không trùng số, không bỏ sót số
+async function createReceipt({ donor, lines, method, note = "" }){
+  const date = todayStr();
+  const [y, mo] = date.split("-").map(Number);
+  const time = new Date().toTimeString().slice(0, 5);
+  const cref = doc(db, "counters", "receipt-" + NOW);
+  const refs = lines.map(() => doc(collection(db, "offerings")));
+  const base = {
+    date, time, year: y, month: mo, quarter: quarterOf(mo),
+    donorId: donor.donorId, donorName: donor.donorName, tribe: donor.tribe, anonymous: donor.anon,
+    method, note, createdBy: me.name, updatedBy: me.name, printCount: 0
+  };
+  let no = "", seq = 0;
+  await runTransaction(db, async tx => {
+    const cs = await tx.get(cref);
+    seq = (cs.exists() ? cs.data().last : 0) + 1;
+    no = `${NOW}-${String(seq).padStart(5, "0")}`;
+    tx.set(cref, { last: seq });
+    lines.forEach((l, i) => tx.set(refs[i], {
+      ...base, fund: l.fund, amount: l.amount, receiptNo: no, receiptSeq: seq,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    }));
+  });
+  const recs = lines.map((l, i) => ({ id: refs[i].id, ...base, fund: l.fund, amount: l.amount, receiptNo: no, receiptSeq: seq }));
+  if (offeringsByYear[y]) offeringsByYear[y].push(...recs);   // cập nhật bộ nhớ tạm, không phải tải lại cả năm
+  return { no, recs };
+}
+
+function receiptHTML(lines){
+  const o = lines[0];
+  const total = lines.reduce((s, l) => s + l.amount, 0);
+  const reprint = (o.printCount || 0) > 0;
+  return `<div class="rc">
+    <h1>${esc(CHURCH_NAME)}</h1>
+    <div class="c small">${esc(CHURCH_ADDRESS)}${CHURCH_PHONE ? " · ĐT " + esc(CHURCH_PHONE) : ""}</div>
+    <hr>
+    <div class="c"><strong>BIÊN NHẬN DÂNG HIẾN</strong></div>
+    ${o.voided ? `<div class="stamp">ĐÃ HỦY</div>` : reprint ? `<div class="stamp">BẢN IN LẠI</div>` : ""}
+    <div class="row"><span>Số</span><strong>${esc(o.receiptNo)}</strong></div>
+    <div class="row"><span>Ngày</span><span>${fmtDate(o.date)}${o.time ? " " + esc(o.time) : ""}</span></div>
+    <div class="row"><span>Người dâng</span><strong>${o.anonymous ? "Ẩn danh" : esc(o.donorName)}</strong></div>
+    <hr>
+    ${lines.map(l => `<div class="row"><span>${esc(l.fund)}</span><span>${money(l.amount)}</span></div>`).join("")}
+    <hr>
+    <div class="row tot"><span>TỔNG CỘNG</span><span>${money(total)} ₫</span></div>
+    <div class="small">Bằng chữ: ${esc(vnWords(total))}.</div>
+    <div class="small">Hình thức: ${esc(o.method || "Tiền mặt")}</div>
+    <div class="small">Người nhận: ${esc(o.createdBy || "")}</div>
+    <hr>
+    <div class="c small">${esc(RECEIPT_FOOTER)}</div>
+    <div class="sig"><div>Người dâng<br><br><br></div><div>Người nhận<br><br><br></div></div>
+  </div>`;
+}
+
+function printReceipt(lines){
+  if (!lines.length) return;
+  const paper = store.get("paper", "80");
+  const area = $("#printArea");
+  area.className = "paper-" + paper;
+  area.innerHTML = receiptHTML(lines);
+  let st = $("#pageStyle");
+  if (!st){ st = document.createElement("style"); st.id = "pageStyle"; document.head.appendChild(st); }
+  st.textContent = paper === "a5" ? "@page{size:A5;margin:10mm}" : "@page{margin:0}";
+  lines.forEach(l => {
+    l.printCount = (l.printCount || 0) + 1;
+    if (!l.test) updateDoc(doc(db, "offerings", l.id), { printCount: l.printCount, lastPrintedAt: serverTimestamp() }).catch(() => {});
+  });
+  setTimeout(() => window.print(), 80);
+}
+
+function testReceipt(){
+  const b = { receiptNo: "IN-THU", date: todayStr(), time: "09:30", donorName: "Nguyễn Văn A", anonymous: false, method: "Tiền mặt", createdBy: me.name, printCount: 0, test: true };
+  return [{ ...b, id: "t1", fund: FUNDS[0], amount: 500000 }, { ...b, id: "t2", fund: FUNDS[2] || FUNDS[1], amount: 200000 }];
+}
+
+const lineRow = (fund = "", amount = "") => `<div class="qline">
+  <select name="fund" aria-label="Quỹ">${FUNDS.map(f => opt(f, fund, f)).join("")}</select>
+  <input class="qamt" name="amount" type="number" inputmode="numeric" min="0" step="1000" placeholder="Số tiền (₫)" value="${amount}" aria-label="Số tiền">
+  <button type="button" class="btn ghost sm" data-act="q-del-line">Bỏ</button></div>`;
+
+function offQuick(){
+  const labels = donorLabels();
+  const method = store.get("method", METHODS[0]);
+  const paper = store.get("paper", "80");
+  $("#offbody").innerHTML = `
+  <div class="qwrap">
+    <form id="fq" class="quick" autocomplete="off">
+      <label>Người dâng
+        <input name="donor" id="qDonor" list="qDonors" placeholder="Gõ tên rồi chọn trong danh sách">
+        <datalist id="qDonors">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist></label>
+      <label class="check"><input type="checkbox" name="anon"> Dâng ẩn danh</label>
+      <div class="newdonor hidden" id="qNew">
+        <p><strong>Chưa có trong danh sách tín hữu.</strong> Bổ sung để lần sau chọn lại được.</p>
+        <label class="check"><input type="checkbox" name="addMember" checked> Thêm vào danh sách tín hữu</label>
+        <div class="form">
+          <label>Loại<select name="mType"><option value="Vãng lai">Tín hữu vãng lai</option><option value="Thành viên">Tín hữu của hội thánh</option></select></label>
+          <label>Chi phái<select name="nTribe" id="qTribe"><option value="">Chưa rõ / không thuộc</option>${TRIBES.map(t => `<option value="${t}">${tribeName(t)}</option>`).join("")}</select></label>
+          <label class="full">Ban ngành<select name="nMinistry"><option value="">Chưa xếp</option>${MINISTRIES.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join("")}</select></label>
+        </div>
+      </div>
+      <div id="qLines">${lineRow(store.get("fund", FUNDS[0]))}</div>
+      <div><button type="button" class="btn ghost sm" data-act="q-add-line">Thêm quỹ khác</button></div>
+      <div class="chips">${[50000, 100000, 200000, 500000, 1000000].map(v => `<button type="button" class="chip" data-act="q-amt" data-v="${v}">${money(v)}</button>`).join("")}</div>
+      <div class="qtotal" id="qTotal"></div>
+      <div class="seg">${METHODS.map(m => `<label><input type="radio" name="method" value="${esc(m)}" ${m === method ? "checked" : ""}> ${esc(m)}</label>`).join("")}</div>
+      <button class="btn big" type="submit" id="qSave">Lưu và in biên nhận</button>
+      <div class="flash" id="qMsg">${esc(qFlash)}</div>
+    </form>
+    <div>
+      <h2>Đã nhận hôm nay</h2><div id="qToday"></div>
+      <div style="margin-top:28px"><h3>Máy in</h3>
+        <label>Loại giấy<select id="qPaper">${Object.entries(PAPERS).map(([k, v]) => opt(k, paper, v)).join("")}</select></label>
+        <div style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="q-test">In thử</button></div>
+        <div class="hint">Để in không hiện hộp thoại: đặt máy in phiếu làm máy in mặc định và mở Chrome với tùy chọn --kiosk-printing.</div>
+      </div>
+    </div>
+  </div>`;
+  const f = $("#fq");
+  const sync = () => {
+    const total = [...f.querySelectorAll(".qamt")].reduce((s, i) => s + (Number(i.value) || 0), 0);
+    $("#qTotal").innerHTML = total ? `${money(total)} ₫<small>${esc(vnWords(total))}</small>` : "";
+    const t = f.donor.value.trim();
+    const show = !f.anon.checked && !!t && !labels.has(t);
+    $("#qNew").classList.toggle("hidden", !show);
+    $("#qTribe").required = show && f.addMember.checked && f.mType.value === "Thành viên";
+  };
+  f.addEventListener("input", sync);
+  f.addEventListener("change", sync);
+  $("#qPaper").onchange = e => store.set("paper", e.target.value);
+  sync(); renderQToday();
+  qFlash = "";
+  $("#qDonor").focus();
+}
+
+function renderQToday(){
+  const today = todayStr();
+  const groups = new Map();
+  (offeringsByYear[NOW] || []).filter(o => o.date === today && o.receiptNo).forEach(o => {
+    if (!groups.has(o.receiptNo)) groups.set(o.receiptNo, []);
+    groups.get(o.receiptNo).push(o);
+  });
+  const list = [...groups.values()].sort((a, b) => (b[0].receiptSeq || 0) - (a[0].receiptSeq || 0));
+  const sum = g => g.reduce((t, l) => t + l.amount, 0);
+  const live = list.filter(g => !g[0].voided);
+  $("#qToday").innerHTML = list.length ? `
+    <div class="sub" style="margin-bottom:6px">${live.length} biên nhận, tổng ${money(live.reduce((s, g) => s + sum(g), 0))} ₫</div>
+    ${list.slice(0, 12).map(g => { const o = g[0]; return `
+      <div class="today-row" data-open="o:${o.id}" style="cursor:pointer">
+        <div ${o.voided ? 'style="text-decoration:line-through;opacity:.6"' : ""}><strong>${o.anonymous ? "Ẩn danh" : esc(o.donorName)}</strong>
+          <div class="sub">BN ${esc(o.receiptNo)}${o.time ? ", " + esc(o.time) : ""}${o.voided ? ", đã hủy" : ""}</div></div>
+        <div style="text-align:right;white-space:nowrap">${money(sum(g))} ₫
+          ${o.voided ? "" : `<button class="btn ghost sm" data-act="reprint" data-no="${esc(o.receiptNo)}">In lại</button>`}</div>
+      </div>`; }).join("")}` : `<div class="empty">Chưa có biên nhận nào hôm nay.</div>`;
+}
+
+async function saveQuick(fd){
+  if (!canEditFinance()) return;
+  const funds = fd.getAll("fund"), amts = fd.getAll("amount");
+  const lines = funds.map((fund, i) => ({ fund, amount: Math.round(Number(amts[i])) })).filter(l => l.amount > 0);
+  if (!lines.length) return alertErr("Vui lòng nhập số tiền.");
+  const btn = $("#qSave");
+  if (btn) btn.disabled = true;
+  try {
+    const dn = await resolveDonor(fd);
+    if (!dn) return;
+    const method = fd.get("method") || METHODS[0];
+    const { no, recs } = await createReceipt({ donor: dn, lines, method });
+    store.set("fund", lines[0].fund); store.set("method", method);
+    qFlash = `Đã lưu biên nhận ${no}, ${money(lines.reduce((s, l) => s + l.amount, 0))} ₫. Đang gửi lệnh in.`;
+    printReceipt(recs);
+    offQuick();
+  } catch (err) {
+    alertErr("Chưa lưu được: " + err.message);
+  } finally {
+    const b = $("#qSave");
+    if (b) b.disabled = false;
+  }
+}
+
+function openReceiptDetail(o){
+  const lines = receiptLines(o.receiptNo);
+  const total = lines.reduce((s, l) => s + l.amount, 0);
+  openDialog(`
+  <div class="dlg">
+    <h2>Biên nhận ${esc(o.receiptNo)} ${o.voided ? `<span class="badge">Đã hủy</span>` : ""}</h2>
+    <dl class="kv">
+      <dt>Ngày giờ</dt><dd>${fmtDate(o.date)}${o.time ? " " + esc(o.time) : ""}</dd>
+      <dt>Người dâng</dt><dd>${o.anonymous ? "Ẩn danh" : esc(o.donorName)}</dd>
+      <dt>Hình thức</dt><dd>${esc(o.method || "—")}</dd>
+      <dt>Người nhận</dt><dd>${esc(o.createdBy || "—")}</dd>
+      <dt>Số lần in</dt><dd>${o.printCount || 0}</dd>
+      ${o.voided ? `<dt>Lý do hủy</dt><dd>${esc(o.voidReason || "—")} (${esc(o.voidedBy || "")})</dd>` : ""}
+    </dl>
+    <table><tbody>${lines.map(l => `<tr><td>${esc(l.fund)}</td><td class="num">${money(l.amount)} ₫</td></tr>`).join("")}
+      <tr><td><strong>Tổng</strong></td><td class="num"><strong>${money(total)} ₫</strong></td></tr></tbody></table>
+    <div class="dlg-foot">
+      ${o.voided ? "" : `<button class="btn danger" data-act="void-receipt" data-no="${esc(o.receiptNo)}">Hủy biên nhận</button>`}
+      <span class="spacer"></span>
+      <button class="btn ghost" data-act="close">Đóng</button>
+      ${o.voided ? "" : `<button class="btn" data-act="reprint" data-no="${esc(o.receiptNo)}">In lại</button>`}
+    </div>
+  </div>`);
+}
+
+async function voidReceipt(no){
+  const lines = receiptLines(no);
+  if (!lines.length) return;
+  const reason = prompt(`Hủy biên nhận ${no}. Nhập lý do hủy (bắt buộc):`);
+  if (reason == null) return;
+  if (!reason.trim()) return alertErr("Cần ghi lý do hủy biên nhận.");
+  try {
+    await Promise.all(lines.map(l => updateDoc(doc(db, "offerings", l.id), {
+      voided: true, voidReason: reason.trim(), voidedBy: me.name, voidedAt: serverTimestamp(),
+      updatedBy: me.name, updatedAt: serverTimestamp()
+    })));
+  } catch (err){ return alertErr("Chưa hủy được: " + err.message); }
+  lines.forEach(l => { l.voided = true; l.voidReason = reason.trim(); l.voidedBy = me.name; });
+  closeDialog(); render();
+}
+
+/* ---- Báo cáo tháng / quý / năm ---- */
+function reportYears(){
+  return repMode === "year" ? Array.from({ length: 5 }, (_, i) => NOW - 4 + i) : [repYear];
+}
+
+function reportData(){
+  const years = reportYears();
+  const data = years.flatMap(y => offeringsByYear[y] || []).filter(o => !o.voided);
+  let cols, keyOf;
+  if (repMode === "month"){
+    cols = Array.from({ length: 12 }, (_, i) => ({ key: i + 1, label: "Tháng " + (i + 1), short: "T" + (i + 1) }));
+    keyOf = o => o.month;
+  } else if (repMode === "quarter"){
+    cols = [1, 2, 3, 4].map(q => ({ key: q, label: "Quý " + q, short: "Quý " + q }));
+    keyOf = o => quarterOf(o.month);
+  } else {
+    cols = years.map(y => ({ key: y, label: String(y), short: String(y) }));
+    keyOf = o => o.year;
+  }
+  const funds = [...new Set([...FUNDS, ...data.map(o => o.fund)])];
+  const cell = {};
+  funds.forEach(f => cell[f] = {});
+  data.forEach(o => { const k = keyOf(o); cell[o.fund][k] = (cell[o.fund][k] || 0) + o.amount; });
+  return { data, cols, funds, cell };
+}
+
+function offReport(){
+  const { data, cols, funds, cell } = reportData();
+  const colTotal = cols.map(c => funds.reduce((s, f) => s + (cell[f][c.key] || 0), 0));
+  const grand = colTotal.reduce((a, b) => a + b, 0);
+  const donors = new Set(data.filter(o => !o.anonymous).map(donorKey)).size;
+  const maxCol = Math.max(1, ...colTotal);
+  const totalLabel = repMode === "year" ? "Tổng" : "Cả năm";
+  const scope = repMode === "year" ? `${NOW - 4}–${NOW}` : `năm ${repYear}`;
+  const cellTxt = v => v ? money(v) : "—";
+
+  $("#offbody").innerHTML = `
+    <div class="toolbar">
+      <select id="rMode">
+        ${opt("month", repMode, "Theo tháng")}${opt("quarter", repMode, "Theo quý")}${opt("year", repMode, "Theo năm")}
+      </select>
+      ${repMode === "year" ? "" : `<select id="rYear">${offYears().map(y => opt(y, repYear, "Năm " + y)).join("")}</select>`}
+      <button class="btn ghost sm" data-act="export-report">Xuất CSV</button>
+    </div>
+
+    <div class="figures fin" style="margin-bottom:24px">
+      <div class="lead"><b>${money(grand)} ₫</b><span>Tổng dâng hiến, ${scope}</span></div>
+      <div><b>${data.length}</b><span>Lượt dâng</span></div>
+      <div><b>${donors}</b><span>Người dâng có ghi tên</span></div>
+    </div>
+
+    ${grand ? `<div class="section"><h2>Tổng theo ${repMode === "month" ? "tháng" : repMode === "quarter" ? "quý" : "năm"}</h2>
+      <div class="bars fin">${cols.map((c, i) => `<div class="bar"><span>${c.short}</span>
+        <div class="track"><i style="width:${(colTotal[i] / maxCol * 100).toFixed(1)}%"></i></div>
+        <span>${money(colTotal[i])}</span></div>`).join("")}</div></div>` : ""}
+
+    <div class="section"><h2>Chi tiết theo quỹ (₫)</h2>
+      ${grand ? `<div class="scroll"><table class="matrix">
+        <thead><tr><th>Quỹ</th>${cols.map(c => `<th class="num">${c.short}</th>`).join("")}<th class="num">${totalLabel}</th></tr></thead>
+        <tbody>${funds.map(f => {
+          const rowTotal = cols.reduce((s, c) => s + (cell[f][c.key] || 0), 0);
+          return `<tr><td>${esc(f)}</td>${cols.map(c => `<td class="num">${cellTxt(cell[f][c.key])}</td>`).join("")}<td class="num"><strong>${cellTxt(rowTotal)}</strong></td></tr>`;
+        }).join("")}</tbody>
+        <tfoot><tr><td>Tổng</td>${colTotal.map(v => `<td class="num">${cellTxt(v)}</td>`).join("")}<td class="num">${money(grand)}</td></tr></tfoot>
+      </table></div>` : `<div class="empty">Chưa có dữ liệu dâng hiến cho kỳ này.</div>`}
+    </div>`;
+  $("#rMode").onchange = e => { repMode = e.target.value; vOfferings(); };
+  if ($("#rYear")) $("#rYear").onchange = e => { repYear = Number(e.target.value); vOfferings(); };
+}
+
+/* ---- Xuất CSV ---- */
+function downloadCSV(rows, name){
+  const safe = v => typeof v === "string" && /^[=+\-@]/.test(v) ? "'" + v : v;   // tránh công thức độc hại khi mở bằng Excel
+  const csv = rows.map(r => r.map(v => `"${String(safe(v) ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportOfferings(){
+  const rows = [["Ngày","Số biên nhận","Người dâng","Chi phái","Quỹ","Số tiền (VND)","Hình thức","Ghi chú","Người nhập","Trạng thái"]];
+  filteredOfferings().forEach(o => rows.push([fmtDate(o.date), o.receiptNo, o.anonymous ? "Ẩn danh" : o.donorName, o.tribe, o.fund, o.amount, o.method, o.note, o.updatedBy || o.createdBy, o.voided ? "Đã hủy" : "Hợp lệ"]));
+  downloadCSV(rows, `dang-hien-${offFilter.year}${offFilter.month ? "-t" + offFilter.month : ""}.csv`);
+}
+
+function exportReport(){
+  const { cols, funds, cell } = reportData();
+  const rows = [["Quỹ", ...cols.map(c => c.label), repMode === "year" ? "Tổng" : "Cả năm"]];
+  funds.forEach(f => rows.push([f, ...cols.map(c => cell[f][c.key] || 0), cols.reduce((s, c) => s + (cell[f][c.key] || 0), 0)]));
+  rows.push(["Tổng", ...cols.map(c => funds.reduce((s, f) => s + (cell[f][c.key] || 0), 0)), funds.reduce((s, f) => s + cols.reduce((t, c) => t + (cell[f][c.key] || 0), 0), 0)]);
+  downloadCSV(rows, `bao-cao-tai-chinh-${repMode}-${repMode === "year" ? NOW : repYear}.csv`);
+}
+
+/* ============ TRƯỜNG CHÚA NHẬT ============ */
+// Vai trò: users/{uid}.ss = "head" (Trưởng ban) | "secretary" (Thư ký) | "teacher" (Giáo viên, trợ giảng)
+const SS = {};
+function resetSchool(){
+  Object.assign(SS, { tab: "attend", classes: [], rosters: {}, allRosters: false, sessYear: {}, classId: "", date: "",
+    detailClass: "", courseId: "", cDate: "", year: NOW, month: "", students: {}, cSess: {}, loaded: false });
+}
+resetSchool();
+
+const ssFull = () => isAdmin() || me?.ss === "head" || me?.ss === "secretary";
+const ssAny = () => isAdmin() || !!me?.ss;
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const lastSunday = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return isoOf(d); };
+const emailsOf = s => [...new Set(String(s || "").split(/[,;\s]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
+const slug = s => fold(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const isMine = x => (x.teacherEmails || []).includes(me.email);
+const myClasses = (all = false) => (ssFull() ? SS.classes : SS.classes.filter(isMine)).filter(c => all || c.active !== false);
+const myCourses = () => ssFull() ? courses : courses.filter(isMine);
+const rosterSort = (a, b) => sortByName({ fullName: a.memberName }, { fullName: b.memberName });
+const exportBtns = what => `<span class="exp"><button class="btn ghost sm" data-act="ss-export" data-what="${what}" data-fmt="csv">Xuất CSV</button> <button class="btn ghost sm" data-act="ss-export" data-what="${what}" data-fmt="xlsx">Xuất Excel</button></span>`;
+
+/* ---- Xuất file ---- */
+function loadXLSX(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => rej(new Error("Không tải được thư viện Excel"));
+    document.head.appendChild(s);
+  });
+}
+async function downloadRows(rows, base, fmt){
+  if (fmt === "xlsx"){
+    try {
+      const X = await loadXLSX();
+      const wb = X.utils.book_new();
+      X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(rows), "Danh sach");
+      X.writeFile(wb, base + ".xlsx");
+      return;
+    } catch (err){ alertErr(err.message + ". Hệ thống xuất CSV thay thế, Excel mở được file này."); }
+  }
+  downloadCSV(rows, base + ".csv");
+}
+
+/* ---- Tải dữ liệu ---- */
+async function loadSchool(){
+  if (SS.loaded) return;
+  const snap = await getDocs(collection(db, "classes"));
+  SS.classes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name), "vi"));
+  SS.loaded = true;
+}
+async function loadRoster(id, force = false){
+  if (!force && SS.rosters[id]) return SS.rosters[id];
+  const snap = await getDocs(query(collection(db, "classMembers"), where("classId", "==", id)));
+  SS.rosters[id] = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(rosterSort);
+  return SS.rosters[id];
+}
+async function loadAllRosters(){
+  if (SS.allRosters) return;
+  const snap = await getDocs(collection(db, "classMembers"));
+  const by = {};
+  snap.docs.forEach(d => { const r = { id: d.id, ...d.data() }; (by[r.classId] = by[r.classId] || []).push(r); });
+  SS.classes.forEach(c => { SS.rosters[c.id] = (by[c.id] || []).sort(rosterSort); });
+  SS.allRosters = true;
+}
+async function loadClassSession(classId, date){
+  const s = await getDoc(doc(db, "classSessions", `${classId}_${date}`));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+async function loadSessionsYear(y){
+  if (SS.sessYear[y]) return SS.sessYear[y];
+  const snap = await getDocs(query(collection(db, "classSessions"), where("year", "==", y)));
+  SS.sessYear[y] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return SS.sessYear[y];
+}
+async function loadStudents(id, force = false){
+  if (!force && SS.students[id]) return SS.students[id];
+  const snap = await getDocs(query(collection(db, "enrollments"), where("courseId", "==", id)));
+  const map = new Map();
+  snap.docs.forEach(d => {
+    const s = { id: d.id, ...d.data() };
+    if (!map.has(s.memberId) || d.id.startsWith(id + "_")) map.set(s.memberId, s);   // gộp bản ghi trùng người
+  });
+  SS.students[id] = [...map.values()].sort((a, b) => sortByName({ fullName: a.memberName }, { fullName: b.memberName }));
+  return SS.students[id];
+}
+async function loadCSessions(id, force = false){
+  if (!force && SS.cSess[id]) return SS.cSess[id];
+  const snap = await getDocs(query(collection(db, "courseSessions"), where("courseId", "==", id)));
+  SS.cSess[id] = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.date.localeCompare(b.date));
+  return SS.cSess[id];
+}
+
+/* ---- Khung chính ---- */
+async function vSchool(){
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Trường Chúa Nhật</h1>
+      <div class="sub">${ssFull() ? "Quản lý toàn bộ lớp, điểm danh và khóa học" : "Điểm danh và thêm học viên vào lớp được phân công"}</div></div></div>
+    <div class="tabs">${[["attend", "Điểm danh"], ["classes", "Lớp"], ["summary", "Tổng hợp tuần"], ["courses", "Khóa học"]]
+      .map(([k, l]) => `<button data-act="ss-tab" data-tab="${k}" class="${SS.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+    <div id="ssbody"><div class="empty">Đang tải dữ liệu…</div></div>`;
+  try {
+    await loadSchool();
+    if (view !== "sschool") return;
+    await ({ attend: ssAttend, classes: ssClasses, summary: ssSummary, courses: ssCourses })[SS.tab]();
+  } catch (err){
+    if ($("#ssbody")) $("#ssbody").innerHTML = `<div class="empty">Không tải được dữ liệu (${esc(err.message)}). Kiểm tra quyền trong Firestore Rules.</div>`;
+  }
+}
+
+/* ---- Điểm danh ---- */
+async function ssAttend(){
+  const list = myClasses();
+  const body = $("#ssbody");
+  if (!list.length){
+    body.innerHTML = `<div class="empty">${ssFull() ? "Chưa có lớp nào. Vào tab Lớp để tạo lớp." : "Bạn chưa được phân công lớp nào. Liên hệ Trưởng ban hoặc Thư ký Trường Chúa Nhật."}</div>`;
+    return;
+  }
+  if (!list.some(c => c.id === SS.classId)) SS.classId = list[0].id;
+  if (!SS.date) SS.date = lastSunday();
+  const [roster, sess] = await Promise.all([loadRoster(SS.classId), loadClassSession(SS.classId, SS.date)]);
+  if (view !== "sschool" || SS.tab !== "attend") return;
+  const present = new Set(sess?.present || []), verse = new Set(sess?.verse || []);
+  const isSun = new Date(SS.date + "T00:00:00").getDay() === 0;
+  body.innerHTML = `
+    <div class="toolbar">
+      <select id="aCls">${list.map(c => opt(c.id, SS.classId, c.name)).join("")}</select>
+      <input type="date" id="aDate" value="${SS.date}" style="max-width:170px">
+    </div>
+    ${isSun ? "" : `<div class="hint" style="margin-bottom:10px">Ngày này không phải Chúa Nhật.</div>`}
+    ${sess ? `<div class="hint" style="margin-bottom:10px">Đã có điểm danh ngày này (cập nhật bởi ${esc(sess.updatedBy || "—")}). Lưu lại sẽ ghi đè.</div>` : ""}
+    ${roster.length ? `
+      <div class="att-top"><div class="att-count" id="aCount"></div><button class="btn ghost sm" data-act="ss-all-present">Chọn tất cả có mặt</button></div>
+      <div class="att-list" id="aList">${roster.map(r => `
+        <div class="att-row"><div class="nm">${esc(r.memberName)}<small>${r.birthYear ? "sinh " + r.birthYear : ""}</small></div>
+          <label class="tg"><input type="checkbox" data-k="p" value="${esc(r.memberId)}" ${present.has(r.memberId) ? "checked" : ""}> Có mặt</label>
+          <label class="tg"><input type="checkbox" data-k="v" value="${esc(r.memberId)}" ${verse.has(r.memberId) ? "checked" : ""}> Thuộc câu gốc</label></div>`).join("")}</div>
+      <label style="max-width:260px;margin-top:14px">Khách (chưa có trong danh sách lớp)<input type="number" id="aGuests" min="0" value="${sess?.guests ?? 0}"></label>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="btn" data-act="ss-save-att">Lưu điểm danh</button><span class="flash" id="aMsg"></span></div>`
+      : `<div class="empty">Lớp chưa có học viên. Vào tab Lớp, mở lớp này để thêm học viên.</div>`}`;
+  $("#aCls").onchange = e => { SS.classId = e.target.value; ssAttend(); };
+  $("#aDate").onchange = e => { SS.date = e.target.value || lastSunday(); ssAttend(); };
+  bindAtt("#aList", true);
+}
+
+function bindAtt(sel, withVerse){
+  const list = $(sel);
+  if (!list) return;
+  list.addEventListener("change", e => {
+    const cb = e.target;
+    if (!cb.dataset.k) return;
+    const row = cb.closest(".att-row");
+    const p = row.querySelector('[data-k="p"]'), v = row.querySelector('[data-k="v"]');
+    if (v && cb.dataset.k === "v" && v.checked) p.checked = true;
+    if (v && cb.dataset.k === "p" && !p.checked) v.checked = false;
+    attCount(sel, withVerse);
+  });
+  attCount(sel, withVerse);
+}
+function attCount(sel, withVerse){
+  const list = $(sel);
+  if (!list || !$("#aCount")) return;
+  const total = list.querySelectorAll('[data-k="p"]').length;
+  const p = list.querySelectorAll('[data-k="p"]:checked').length;
+  const v = withVerse ? list.querySelectorAll('[data-k="v"]:checked').length : 0;
+  $("#aCount").textContent = `Có mặt ${p}/${total}` + (withVerse ? `, thuộc câu gốc ${v}` : "");
+}
+
+async function saveAttendance(){
+  const cls = SS.classes.find(c => c.id === SS.classId);
+  if (!cls) return;
+  const rows = [...document.querySelectorAll("#aList .att-row")];
+  const present = rows.map(r => r.querySelector('[data-k="p"]')).filter(c => c.checked).map(c => c.value);
+  const verse = rows.map(r => r.querySelector('[data-k="v"]')).filter(c => c.checked).map(c => c.value);
+  const guests = Math.max(0, Math.round(Number($("#aGuests").value) || 0));
+  const [y, mo] = SS.date.split("-").map(Number);
+  const id = `${SS.classId}_${SS.date}`;
+  const data = { classId: SS.classId, className: cls.name, date: SS.date, year: y, month: mo, present, verse, guests,
+    rosterCount: rows.length, presentCount: present.length, verseCount: verse.length, updatedBy: me.name, updatedAt: serverTimestamp() };
+  try { await setDoc(doc(db, "classSessions", id), data); }
+  catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  const { updatedAt, ...local } = data;
+  if (SS.sessYear[y]){
+    const i = SS.sessYear[y].findIndex(s => s.id === id);
+    if (i >= 0) SS.sessYear[y][i] = { id, ...local }; else SS.sessYear[y].push({ id, ...local });
+  }
+  $("#aMsg").textContent = `Đã lưu: ${present.length}/${rows.length} có mặt, ${verse.length} thuộc câu gốc.`;
+}
+
+/* ---- Lớp ---- */
+async function ssClasses(){
+  const body = $("#ssbody");
+  body.innerHTML = `<div class="empty">Đang tải…</div>`;
+  await loadAllRosters();
+  if (view !== "sschool" || SS.tab !== "classes") return;
+  if (SS.detailClass) return ssClassDetail();
+  const list = myClasses(true);
+  body.innerHTML = `
+    <div class="toolbar">${ssFull() ? `<button class="btn" data-act="ss-new-class">Thêm lớp</button>` : ""}${list.length ? exportBtns("classes") : ""}</div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>Lớp</th><th>Liên kết ban</th><th>Giáo viên / trợ giảng</th><th class="num">Sĩ số</th></tr></thead><tbody>
+      ${list.map(c => `<tr data-act="ss-open-class" data-id="${c.id}" style="cursor:pointer">
+        <td><strong>${esc(c.name)}</strong>${c.active === false ? `<span class="badge">Ngừng</span>` : ""}</td>
+        <td>${esc(c.ministry || "—")}</td>
+        <td>${(c.teacherEmails || []).length ? esc(c.teacherEmails.join(", ")) : `<span class="muted">Chưa phân công</span>`}</td>
+        <td class="num">${(SS.rosters[c.id] || []).length}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">${ssFull() ? "Chưa có lớp nào." : "Bạn chưa được phân công lớp nào."}
+          ${ssFull() ? `<div style="margin-top:12px"><button class="btn ghost" data-act="ss-seed-classes">Tạo lớp mẫu từ các ban (${MINISTRIES.join(", ")})</button></div>` : ""}</div>`}`;
+}
+
+function openClassForm(c = {}){
+  openDialog(`
+  <form class="dlg form" id="fcls" data-id="${esc(c.id || "")}">
+    <h2 class="full">${c.id ? "Sửa lớp" : "Thêm lớp"}</h2>
+    <label class="full">Tên lớp *<input name="name" required value="${esc(c.name)}" placeholder="VD: Cao niên, Thanh niên"></label>
+    <label class="full">Liên kết ban sinh hoạt<select name="ministry"><option value="">Không liên kết</option>${MINISTRIES.map(k => opt(k, c.ministry, k)).join("")}</select>
+      <div class="hint">Dùng để nạp nhanh danh sách học viên từ ban trong danh sách tín hữu.</div></label>
+    <label class="full">Giáo viên / trợ giảng (email đăng nhập, cách nhau bằng dấu phẩy)<input name="teachers" value="${esc((c.teacherEmails || []).join(", "))}" placeholder="giaovien@example.com"></label>
+    <label class="full check"><input type="checkbox" name="active" ${c.active === false ? "" : "checked"}> Đang hoạt động</label>
+    <div class="dlg-foot full"><span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button><button class="btn" type="submit">Lưu</button></div>
+  </form>`);
+}
+
+async function saveClass(id, fd){
+  const data = { name: fd.get("name").trim(), ministry: fd.get("ministry") || null, teacherEmails: emailsOf(fd.get("teachers")),
+    active: fd.get("active") === "on", updatedBy: me.name, updatedAt: serverTimestamp() };
+  try {
+    if (id){
+      await updateDoc(doc(db, "classes", id), data);
+      const { updatedAt, ...local } = data;
+      Object.assign(SS.classes.find(c => c.id === id), local);
+    } else {
+      const order = SS.classes.length + 1;
+      const ref = await addDoc(collection(db, "classes"), { ...data, order, createdAt: serverTimestamp() });
+      const { updatedAt, ...local } = data;
+      SS.classes.push({ id: ref.id, ...local, order });
+      SS.rosters[ref.id] = [];
+    }
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  closeDialog(); vSchool();
+}
+
+async function seedClasses(){
+  if (!confirm(`Tạo ${MINISTRIES.length} lớp theo các ban: ${MINISTRIES.join(", ")}?`)) return;
+  try {
+    const batch = writeBatch(db);
+    const made = MINISTRIES.map((k, i) => {
+      const ref = doc(collection(db, "classes"));
+      const c = { name: k, ministry: k, teacherEmails: [], active: true, order: SS.classes.length + i + 1, createdBy: me.name };
+      batch.set(ref, { ...c, createdAt: serverTimestamp() });
+      return { id: ref.id, ...c };
+    });
+    await batch.commit();
+    SS.classes.push(...made);
+    made.forEach(c => SS.rosters[c.id] = []);
+  } catch (err){ return alertErr("Chưa tạo được: " + err.message); }
+  vSchool();
+}
+
+async function ssClassDetail(){
+  const cls = SS.classes.find(c => c.id === SS.detailClass);
+  const body = $("#ssbody");
+  if (!cls){ SS.detailClass = ""; return ssClasses(); }
+  const roster = await loadRoster(cls.id);
+  const canAdd = ssFull() || isMine(cls);
+  const labels = canAdd ? donorLabels() : new Map();
+  body.innerHTML = `
+    <button class="linkbtn" data-act="ss-back-class" style="margin-bottom:12px">← Danh sách lớp</button>
+    <div class="head" style="border:0;margin-bottom:8px"><div><h2>${esc(cls.name)}${cls.active === false ? `<span class="badge">Ngừng</span>` : ""}</h2>
+      <div class="sub">${roster.length} học viên${cls.ministry ? ", liên kết ban " + esc(cls.ministry) : ""}${(cls.teacherEmails || []).length ? ", GV: " + esc(cls.teacherEmails.join(", ")) : ""}</div></div>
+      ${ssFull() ? `<button class="btn ghost sm" data-act="ss-edit-class" data-id="${cls.id}">Sửa lớp</button>` : ""}</div>
+    ${canAdd ? `<form id="fadd" data-kind="class" class="toolbar">
+      <input name="donor" list="ssNames" placeholder="Gõ tên để thêm học viên vào lớp" autocomplete="off">
+      <datalist id="ssNames">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
+      <button class="btn" type="submit">Thêm vào lớp</button>
+      ${cls.ministry ? `<button type="button" class="btn ghost" data-act="ss-load-ministry">Nạp từ ban ${esc(cls.ministry)}</button>` : ""}</form>` : ""}
+    <div class="toolbar">${exportBtns("roster")} ${exportBtns("class-attendance").replace(/Xuất (CSV|Excel)/g, m => m + " điểm danh " + SS.year)}</div>
+    ${roster.length ? `<div class="scroll"><table><thead><tr><th>Họ và tên</th><th>Năm sinh</th><th>Chi phái</th><th>Ban</th><th></th></tr></thead><tbody>
+      ${roster.map(r => `<tr><td>${esc(r.memberName)}</td><td>${r.birthYear || "—"}</td><td>${r.tribe ? tribeName(r.tribe) : "—"}</td><td>${esc(r.ministry || "—")}</td>
+        <td>${ssFull() ? `<button class="btn ghost sm" data-act="ss-remove-student" data-id="${esc(r.id)}">Bỏ khỏi lớp</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">Lớp chưa có học viên.</div>`}`;
+}
+
+async function ssAddMember(fd, kind){
+  const m = donorLabels().get((fd.get("donor") || "").trim());
+  if (!m) return alertErr("Hãy chọn đúng tên trong danh sách gợi ý. Nếu người này chưa có trong danh sách tín hữu, nhờ chi phái trưởng hoặc thư ký thêm trước.");
+  try {
+    if (kind === "class"){
+      const cls = SS.classes.find(c => c.id === SS.detailClass);
+      const roster = await loadRoster(cls.id);
+      if (roster.some(r => r.memberId === m.id)) return alertErr(`${m.fullName} đã có trong lớp.`);
+      const rec = { classId: cls.id, memberId: m.id, memberName: m.fullName, gender: m.gender || null, birthYear: m.birthYear || null,
+        tribe: m.tribe || null, ministry: m.ministry || null, addedBy: me.name };
+      await setDoc(doc(db, "classMembers", `${cls.id}_${m.id}`), { ...rec, addedAt: serverTimestamp() });
+      roster.push({ id: `${cls.id}_${m.id}`, ...rec }); roster.sort(rosterSort);
+      await ssClassDetail();
+    } else {
+      const c = courses.find(x => x.id === SS.courseId);
+      const students = await loadStudents(c.id);
+      if (students.some(s => s.memberId === m.id)) return alertErr(`${m.fullName} đã có trong khóa học.`);
+      const rec = { memberId: m.id, memberName: m.fullName, tribe: m.tribe || null, courseId: c.id, courseName: c.name,
+        courseType: c.type || null, year: c.year || NOW, result: null, score: null, createdBy: me.name };
+      await setDoc(doc(db, "enrollments", `${c.id}_${m.id}`), { ...rec, createdAt: serverTimestamp() });
+      students.push({ id: `${c.id}_${m.id}`, ...rec });
+      students.sort((a, b) => sortByName({ fullName: a.memberName }, { fullName: b.memberName }));
+      await ssCourseDetail();
+    }
+    document.querySelector("#fadd input[name=donor]")?.focus();
+  } catch (err){ alertErr("Chưa thêm được: " + err.message); }
+}
+
+async function loadFromMinistry(){
+  const cls = SS.classes.find(c => c.id === SS.detailClass);
+  if (!cls?.ministry) return;
+  const roster = await loadRoster(cls.id);
+  const have = new Set(roster.map(r => r.memberId));
+  const cand = members.filter(m => m.ministry === cls.ministry && m.memberType !== "Vãng lai" && !have.has(m.id));
+  if (!cand.length) return alertErr(`Không có thêm người nào thuộc ban ${cls.ministry} chưa vào lớp.`);
+  if (!confirm(`Thêm ${cand.length} người thuộc ban ${cls.ministry} vào lớp ${cls.name}?`)) return;
+  try {
+    for (let i = 0; i < cand.length; i += BATCH){   // lô nhỏ vì Firestore Rules giới hạn số lần kiểm tra quyền mỗi lệnh ghi hàng loạt
+      const batch = writeBatch(db);
+      cand.slice(i, i + BATCH).forEach(m => batch.set(doc(db, "classMembers", `${cls.id}_${m.id}`), {
+        classId: cls.id, memberId: m.id, memberName: m.fullName, gender: m.gender || null, birthYear: m.birthYear || null,
+        tribe: m.tribe || null, ministry: m.ministry || null, addedBy: me.name, addedAt: serverTimestamp() }));
+      await batch.commit();
+    }
+    await loadRoster(cls.id, true);
+  } catch (err){ return alertErr("Chưa nạp được: " + err.message); }
+  ssClassDetail();
+}
+
+async function removeFromClass(id){
+  const cls = SS.classes.find(c => c.id === SS.detailClass);
+  const r = (SS.rosters[cls.id] || []).find(x => x.id === id);
+  if (!r || !confirm(`Bỏ “${r.memberName}” khỏi lớp ${cls.name}? Lịch sử điểm danh cũ vẫn được giữ.`)) return;
+  try { await deleteDoc(doc(db, "classMembers", id)); }
+  catch (err){ return alertErr("Chưa bỏ được: " + err.message); }
+  SS.rosters[cls.id] = SS.rosters[cls.id].filter(x => x.id !== id);
+  ssClassDetail();
+}
+
+/* ---- Tổng hợp theo tuần ---- */
+function summaryData(all){
+  const cls = myClasses(true);
+  const ids = new Set(cls.map(c => c.id));
+  const sess = all.filter(s => ids.has(s.classId) && (!SS.month || s.month === Number(SS.month)));
+  const byDate = new Map();
+  sess.forEach(s => { if (!byDate.has(s.date)) byDate.set(s.date, {}); byDate.get(s.date)[s.classId] = s; });
+  const rows = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([date, m]) => {
+    let p = 0, v = 0, g = 0;
+    Object.values(m).forEach(s => { p += s.presentCount || 0; v += s.verseCount || 0; g += s.guests || 0; });
+    return { date, m, p, v, g, total: p + g };
+  });
+  return { cls, rows };
+}
+
+async function ssSummary(){
+  const body = $("#ssbody");
+  const all = await loadSessionsYear(SS.year);
+  if (view !== "sschool" || SS.tab !== "summary") return;
+  const { cls, rows } = summaryData(all);
+  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.total, 0) / rows.length) : 0;
+  const max = rows.reduce((m, r) => Math.max(m, r.total), 0);
+  const years = [...new Set([NOW, NOW - 1, NOW - 2, SS.year])].sort((a, b) => b - a);
+  body.innerHTML = `
+    <div class="toolbar">
+      <select id="sY">${years.map(y => opt(y, SS.year, "Năm " + y)).join("")}</select>
+      <select id="sM"><option value="">Cả năm</option>${[...Array(12)].map((_, i) => opt(i + 1, SS.month, "Tháng " + (i + 1))).join("")}</select>
+      ${rows.length ? exportBtns("summary") : ""}
+    </div>
+    <div class="figures fin" style="margin-bottom:20px">
+      <div class="lead"><b>${avg}</b><span>Trung bình có mặt mỗi tuần (gồm khách)</span></div>
+      <div><b>${max}</b><span>Tuần cao nhất</span></div>
+      <div><b>${rows.length}</b><span>Số tuần có điểm danh</span></div>
+    </div>
+    ${rows.length ? `<div class="scroll"><table class="matrix"><thead><tr><th>Chúa Nhật</th>${cls.map(c => `<th class="num">${esc(c.name)}</th>`).join("")}
+      <th class="num">Khách</th><th class="num">Học viên có mặt</th><th class="num">Tổng cộng</th><th class="num">Thuộc câu gốc</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${fmtDate(r.date)}</td>${cls.map(c => { const s = r.m[c.id];
+        return `<td class="num">${s ? `${s.presentCount}<small> (${s.verseCount})</small>` : "—"}</td>`; }).join("")}
+        <td class="num">${r.g}</td><td class="num">${r.p}</td><td class="num"><strong>${r.total}</strong></td><td class="num">${r.v}</td></tr>`).join("")}</tbody></table></div>
+      <div class="hint" style="margin-top:8px">Mỗi ô lớp: số có mặt, trong ngoặc là số thuộc câu gốc.</div>`
+      : `<div class="empty">Chưa có điểm danh trong kỳ này.</div>`}`;
+  $("#sY").onchange = e => { SS.year = Number(e.target.value); ssSummary(); };
+  $("#sM").onchange = e => { SS.month = e.target.value; ssSummary(); };
+}
+
+/* ---- Khóa học Kinh Thánh / bồi dưỡng ---- */
+async function ssCourses(){
+  if (SS.courseId) return ssCourseDetail();
+  const list = myCourses().slice().sort((a, b) => String(b.startDate || "").localeCompare(String(a.startDate || "")) || (b.year || 0) - (a.year || 0));
+  $("#ssbody").innerHTML = `
+    <div class="toolbar">${ssFull() ? `<button class="btn" data-act="ss-new-course">Thêm khóa học</button>` : ""}${list.length ? exportBtns("courses") : ""}</div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>Tên khóa</th><th>Loại</th><th>Thời gian</th><th>Giáo viên / trợ giảng</th></tr></thead><tbody>
+      ${list.map(c => `<tr data-act="ss-open-course" data-id="${c.id}" style="cursor:pointer"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.type || "—")}</td>
+        <td>${c.startDate ? fmtDate(c.startDate) + (c.endDate ? " – " + fmtDate(c.endDate) : "") : (c.year || "—")}</td>
+        <td>${(c.teacherEmails || []).length ? esc(c.teacherEmails.join(", ")) : `<span class="muted">—</span>`}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">${ssFull() ? "Chưa có khóa học nào." : "Bạn chưa được phân công khóa học nào."}</div>`}`;
+}
+
+function openCourseFormSS(c = {}){
+  openDialog(`
+  <form class="dlg form" id="fcrs" data-id="${esc(c.id || "")}">
+    <h2 class="full">${c.id ? "Sửa khóa học" : "Thêm khóa học"}</h2>
+    <label class="full">Tên khóa *<input name="name" required value="${esc(c.name)}" placeholder="VD: Học Kinh Thánh cơ bản"></label>
+    <label>Loại<select name="type">${COURSE_TYPES.map(t => opt(t, c.type || "Kinh Thánh", t)).join("")}</select></label>
+    <span></span>
+    <label>Từ ngày *<input type="date" name="startDate" required value="${esc(c.startDate)}"></label>
+    <label>Đến ngày *<input type="date" name="endDate" required value="${esc(c.endDate)}"></label>
+    <label class="full">Giáo viên / trợ giảng (email đăng nhập, cách nhau bằng dấu phẩy)<input name="teachers" value="${esc((c.teacherEmails || []).join(", "))}"></label>
+    <div class="dlg-foot full"><span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button><button class="btn" type="submit">Lưu</button></div>
+  </form>`);
+}
+
+async function saveCourseSS(id, fd){
+  const startDate = fd.get("startDate"), endDate = fd.get("endDate");
+  if (endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
+  const data = { name: fd.get("name").trim(), type: fd.get("type"), startDate, endDate, year: Number(startDate.slice(0, 4)),
+    teacherEmails: emailsOf(fd.get("teachers")), updatedBy: me.name, updatedAt: serverTimestamp() };
+  try {
+    const { updatedAt, ...local } = data;
+    if (id){
+      await updateDoc(doc(db, "courses", id), data);
+      Object.assign(courses.find(c => c.id === id), local);
+    } else {
+      const ref = await addDoc(collection(db, "courses"), { ...data, createdAt: serverTimestamp() });
+      courses.push({ id: ref.id, ...local });
+    }
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  closeDialog(); vSchool();
+}
+
+const BATCH = 8;
+const RESULTS = ["", "Đạt", "Chưa đạt", "Vắng thi"];
+const resultOptions = cur => [...new Set([...RESULTS, cur || ""])].map(r => opt(r, cur || "", r || "Chưa có")).join("");
+
+async function ssCourseDetail(){
+  const c = courses.find(x => x.id === SS.courseId);
+  const body = $("#ssbody");
+  if (!c){ SS.courseId = ""; return ssCourses(); }
+  body.innerHTML = `<div class="empty">Đang tải…</div>`;
+  const [students, sessions] = await Promise.all([loadStudents(c.id), loadCSessions(c.id)]);
+  if (view !== "sschool" || SS.tab !== "courses" || SS.courseId !== c.id) return;
+  const canAdd = ssFull() || isMine(c);
+  const date = SS.cDate || todayStr();
+  const cur = sessions.find(s => s.date === date);
+  const present = new Set(cur?.present || []);
+  const held = sessions.length;
+  const attended = id => sessions.filter(s => (s.present || []).includes(id)).length;
+  const labels = canAdd ? donorLabels() : new Map();
+  body.innerHTML = `
+    <button class="linkbtn" data-act="ss-back-course" style="margin-bottom:12px">← Danh sách khóa học</button>
+    <div class="head" style="border:0;margin-bottom:8px"><div><h2>${esc(c.name)}</h2>
+      <div class="sub">${esc(c.type || "")}${c.startDate ? ", " + fmtDate(c.startDate) + " – " + fmtDate(c.endDate) : ""}, ${students.length} học viên, ${held} buổi đã điểm danh</div></div>
+      ${ssFull() ? `<button class="btn ghost sm" data-act="ss-edit-course" data-id="${c.id}">Sửa khóa</button>` : ""}</div>
+    <div class="toolbar">${exportBtns("course-students")} ${exportBtns("course-attendance").replace(/Xuất (CSV|Excel)/g, m => m + " điểm danh")}</div>
+
+    <h3 style="margin-top:8px">Học viên và kết quả thi</h3>
+    ${canAdd ? `<form id="fadd" data-kind="course" class="toolbar">
+      <input name="donor" list="ssNames" placeholder="Gõ tên để thêm học viên vào khóa" autocomplete="off">
+      <datalist id="ssNames">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
+      <button class="btn" type="submit">Thêm vào khóa</button></form>` : ""}
+    ${students.length ? `<div class="scroll"><table><thead><tr><th>Họ và tên</th><th class="num">Có mặt</th><th class="num">Điểm thi</th><th>Kết quả</th><th></th></tr></thead><tbody>
+      ${students.map(s => `<tr><td>${esc(s.memberName)}</td><td class="num">${attended(s.memberId)}/${held}</td>
+        <td class="num">${ssFull() ? `<input class="sc" type="number" min="0" step="0.1" data-sid="${esc(s.id)}" data-f="score" value="${s.score ?? ""}" style="width:84px">` : (s.score ?? "—")}</td>
+        <td>${ssFull() ? `<select data-sid="${esc(s.id)}" data-f="result" style="min-width:110px">${resultOptions(s.result)}</select>` : esc(s.result || "—")}</td>
+        <td>${ssFull() ? `<button class="btn ghost sm" data-act="ss-remove-course-student" data-id="${esc(s.id)}">Bỏ</button>` : ""}</td></tr>`).join("")}</tbody></table></div>
+      ${ssFull() ? `<div style="margin-top:12px"><button class="btn" data-act="ss-save-results">Lưu kết quả thi</button> <span class="flash" id="rMsg"></span></div>` : ""}`
+      : `<div class="empty">Khóa học chưa có học viên.</div>`}
+
+    <h3 style="margin-top:28px">Điểm danh buổi học</h3>
+    ${students.length && canAdd ? `
+      <div class="toolbar"><input type="date" id="cDate" value="${date}" style="max-width:170px">
+        ${sessions.slice(-8).map(s => `<button class="chip" data-act="ss-cdate" data-d="${s.date}">${fmtDate(s.date)}</button>`).join("")}</div>
+      ${c.startDate && (date < c.startDate || date > c.endDate) ? `<div class="hint" style="margin-bottom:8px">Ngày này nằm ngoài thời gian khóa học.</div>` : ""}
+      ${cur ? `<div class="hint" style="margin-bottom:8px">Đã có điểm danh ngày này (bởi ${esc(cur.updatedBy || "—")}). Lưu lại sẽ ghi đè.</div>` : ""}
+      <div class="att-top"><div class="att-count" id="aCount"></div><button class="btn ghost sm" data-act="ss-all-present">Chọn tất cả có mặt</button></div>
+      <div class="att-list" id="cList">${students.map(s => `<div class="att-row" style="grid-template-columns:1fr auto"><div class="nm">${esc(s.memberName)}</div>
+        <label class="tg"><input type="checkbox" data-k="p" value="${esc(s.memberId)}" ${present.has(s.memberId) ? "checked" : ""}> Có mặt</label></div>`).join("")}</div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="btn" data-act="ss-save-catt">Lưu điểm danh</button><span class="flash" id="cMsg"></span></div>`
+      : `<div class="empty">${students.length ? "Bạn không có quyền điểm danh khóa này." : "Thêm học viên trước khi điểm danh."}</div>`}`;
+  if ($("#cDate")) $("#cDate").onchange = e => { SS.cDate = e.target.value || todayStr(); ssCourseDetail(); };
+  bindAtt("#cList", false);
+}
+
+async function saveResults(){
+  const c = courses.find(x => x.id === SS.courseId);
+  const students = SS.students[c.id] || [];
+  const changes = [];
+  students.forEach(s => {
+    const sc = document.querySelector(`input[data-sid="${CSS.escape(s.id)}"]`);
+    const rs = document.querySelector(`select[data-sid="${CSS.escape(s.id)}"]`);
+    if (!sc || !rs) return;
+    const score = sc.value === "" ? null : Number(sc.value);
+    const result = rs.value || null;
+    if (score !== (s.score ?? null) || result !== (s.result ?? null)) changes.push({ s, score, result });
+  });
+  if (!changes.length){ $("#rMsg").textContent = "Không có thay đổi."; return; }
+  try {
+    for (let i = 0; i < changes.length; i += BATCH){
+      const batch = writeBatch(db);
+      changes.slice(i, i + BATCH).forEach(({ s, score, result }) => batch.update(doc(db, "enrollments", s.id), { score, result, updatedBy: me.name, updatedAt: serverTimestamp() }));
+      await batch.commit();
+    }
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  changes.forEach(({ s, score, result }) => { s.score = score; s.result = result; });
+  $("#rMsg").textContent = `Đã lưu kết quả của ${changes.length} học viên.`;
+}
+
+async function saveCourseAtt(){
+  const c = courses.find(x => x.id === SS.courseId);
+  const date = $("#cDate").value || todayStr();
+  const present = [...document.querySelectorAll('#cList [data-k="p"]')].filter(x => x.checked).map(x => x.value);
+  const id = `${c.id}_${date}`;
+  const data = { courseId: c.id, date, present, presentCount: present.length, updatedBy: me.name, updatedAt: serverTimestamp() };
+  try { await setDoc(doc(db, "courseSessions", id), data); }
+  catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  const { updatedAt, ...local } = data;
+  const list = SS.cSess[c.id] || (SS.cSess[c.id] = []);
+  const i = list.findIndex(s => s.id === id);
+  if (i >= 0) list[i] = { id, ...local }; else { list.push({ id, ...local }); list.sort((a, b) => a.date.localeCompare(b.date)); }
+  SS.cDate = date;
+  await ssCourseDetail();
+  if ($("#cMsg")) $("#cMsg").textContent = `Đã lưu: ${present.length} người có mặt.`;
+}
+
+async function removeFromCourse(id){
+  const c = courses.find(x => x.id === SS.courseId);
+  const s = (SS.students[c.id] || []).find(x => x.id === id);
+  if (!s || !confirm(`Bỏ “${s.memberName}” khỏi khóa ${c.name}? Điểm thi và kết quả của người này sẽ mất.`)) return;
+  try { await deleteDoc(doc(db, "enrollments", id)); }
+  catch (err){ return alertErr("Chưa bỏ được: " + err.message); }
+  SS.students[c.id] = SS.students[c.id].filter(x => x.id !== id);
+  ssCourseDetail();
+}
+
+/* ---- Xuất danh sách ---- */
+async function ssExport(what, fmt){
+  try {
+    let rows, name;
+    const yr = new Date().getFullYear();
+    if (what === "classes"){
+      rows = [["Lớp", "Liên kết ban", "Giáo viên / trợ giảng", "Sĩ số", "Trạng thái"],
+        ...myClasses(true).map(c => [c.name, c.ministry || "", (c.teacherEmails || []).join("; "), (SS.rosters[c.id] || []).length, c.active === false ? "Ngừng" : "Hoạt động"])];
+      name = "truong-chua-nhat-cac-lop";
+    } else if (what === "roster"){
+      const cls = SS.classes.find(c => c.id === SS.detailClass);
+      const r = await loadRoster(cls.id);
+      rows = [["STT", "Họ và tên", "Giới tính", "Năm sinh", "Chi phái", "Ban"], ...r.map((x, i) => [i + 1, x.memberName, x.gender || "", x.birthYear || "", x.tribe || "", x.ministry || ""])];
+      name = `lop-${slug(cls.name)}-danh-sach`;
+    } else if (what === "class-attendance"){
+      const cls = SS.classes.find(c => c.id === SS.detailClass);
+      const snap = await getDocs(query(collection(db, "classSessions"), where("classId", "==", cls.id), where("year", "==", SS.year)));
+      const sess = snap.docs.map(d => d.data()).sort((a, b) => a.date.localeCompare(b.date));
+      const r = await loadRoster(cls.id);
+      rows = [["Họ và tên", "Năm sinh", ...sess.map(s => fmtDate(s.date)), "Số buổi có mặt", "Số lần thuộc câu gốc"],
+        ...r.map(x => [x.memberName, x.birthYear || "", ...sess.map(s => (s.present || []).includes(x.memberId) ? ((s.verse || []).includes(x.memberId) ? "X+" : "X") : ""),
+          sess.filter(s => (s.present || []).includes(x.memberId)).length, sess.filter(s => (s.verse || []).includes(x.memberId)).length])];
+      rows.push([], ["Chú thích: X là có mặt, X+ là có mặt và thuộc câu gốc"]);
+      name = `lop-${slug(cls.name)}-diem-danh-${SS.year}`;
+    } else if (what === "summary"){
+      const { cls, rows: wk } = summaryData(await loadSessionsYear(SS.year));
+      rows = [["Chúa Nhật", ...cls.flatMap(c => [c.name + " có mặt", c.name + " thuộc câu gốc"]), "Khách", "Học viên có mặt", "Tổng cộng", "Thuộc câu gốc"],
+        ...wk.map(r => [fmtDate(r.date), ...cls.flatMap(c => { const s = r.m[c.id]; return [s ? s.presentCount : "", s ? s.verseCount : ""]; }), r.g, r.p, r.total, r.v])];
+      name = `tong-hop-tuan-${SS.year}${SS.month ? "-t" + SS.month : ""}`;
+    } else if (what === "courses"){
+      rows = [["Tên khóa", "Loại", "Từ ngày", "Đến ngày", "Giáo viên / trợ giảng"],
+        ...myCourses().map(c => [c.name, c.type || "", c.startDate ? fmtDate(c.startDate) : "", c.endDate ? fmtDate(c.endDate) : "", (c.teacherEmails || []).join("; ")])];
+      name = "khoa-hoc";
+    } else if (what === "course-students"){
+      const c = courses.find(x => x.id === SS.courseId);
+      const [st, se] = await Promise.all([loadStudents(c.id), loadCSessions(c.id)]);
+      rows = [["STT", "Họ và tên", "Chi phái", "Số buổi có mặt", "Tổng số buổi", "Điểm thi", "Kết quả"],
+        ...st.map((s, i) => [i + 1, s.memberName, s.tribe || "", se.filter(x => (x.present || []).includes(s.memberId)).length, se.length, s.score ?? "", s.result || ""])];
+      name = `khoa-${slug(c.name)}-hoc-vien`;
+    } else if (what === "course-attendance"){
+      const c = courses.find(x => x.id === SS.courseId);
+      const [st, se] = await Promise.all([loadStudents(c.id), loadCSessions(c.id)]);
+      rows = [["Họ và tên", ...se.map(x => fmtDate(x.date)), "Số buổi có mặt"],
+        ...st.map(s => [s.memberName, ...se.map(x => (x.present || []).includes(s.memberId) ? "X" : ""), se.filter(x => (x.present || []).includes(s.memberId)).length])];
+      name = `khoa-${slug(c.name)}-diem-danh`;
+    } else return;
+    await downloadRows(rows, name, fmt);
+  } catch (err){ alertErr("Chưa xuất được: " + err.message); }
+}
+
+async function ssAct(a, el){
+  const id = el.dataset.id;
+  switch (a){
+    case "ss-tab": SS.tab = el.dataset.tab; SS.detailClass = ""; SS.courseId = ""; return vSchool();
+    case "ss-all-present": document.querySelectorAll('#aList [data-k="p"], #cList [data-k="p"]').forEach(c => c.checked = true);
+      return attCount($("#aList") ? "#aList" : "#cList", !!$("#aList"));
+    case "ss-save-att": return saveAttendance();
+    case "ss-new-class": return openClassForm({});
+    case "ss-edit-class": return openClassForm(SS.classes.find(c => c.id === id));
+    case "ss-seed-classes": return seedClasses();
+    case "ss-open-class": SS.detailClass = id; return ssClasses();
+    case "ss-back-class": SS.detailClass = ""; return ssClasses();
+    case "ss-remove-student": return removeFromClass(id);
+    case "ss-load-ministry": return loadFromMinistry();
+    case "ss-new-course": return openCourseFormSS({});
+    case "ss-edit-course": return openCourseFormSS(courses.find(c => c.id === id));
+    case "ss-open-course": SS.courseId = id; SS.cDate = ""; return ssCourses();
+    case "ss-back-course": SS.courseId = ""; return ssCourses();
+    case "ss-save-results": return saveResults();
+    case "ss-remove-course-student": return removeFromCourse(id);
+    case "ss-cdate": SS.cDate = el.dataset.d; return ssCourseDetail();
+    case "ss-save-catt": return saveCourseAtt();
+    case "ss-export": return ssExport(el.dataset.what, el.dataset.fmt);
+  }
+}
+
+/* ============ QUẢN TRỊ TÀI KHOẢN VÀ PHÂN QUYỀN ============ */
+let usersList = [], uSearch = "", lastCred = "";
+const ROLE_LABELS = { admin: "Quản trị hội thánh (Mục sư, Thư ký)", tribe: "Chi phái trưởng", finance: "Trưởng ban tài chính", ss: "Trường Chúa Nhật" };
+const SS_LABELS = { head: "Trưởng ban", secretary: "Thư ký", teacher: "Giáo viên / trợ giảng" };
+
+function roleText(u){
+  if (u.role === "tribe") return `Chi phái trưởng, ${tribeName(u.tribe)}` + (u.ss ? `, Trường CN: ${SS_LABELS[u.ss] || u.ss}` : "");
+  if (u.role === "ss") return `Trường Chúa Nhật: ${SS_LABELS[u.ss] || u.ss || "—"}`;
+  return ROLE_LABELS[u.role] || u.role || "—";
+}
+
+function genPassword(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";   // bỏ ký tự dễ nhầm: I, l, O, 0, 1
+  const a = new Uint32Array(12);
+  crypto.getRandomValues(a);
+  return [...a].map(n => chars[n % chars.length]).join("");
+}
+
+function authMsg(err){
+  const m = {
+    "auth/email-already-in-use": "Email này đã có tài khoản đăng nhập. Nếu hồ sơ phân quyền chưa có, vào Firebase Console > Authentication copy UID rồi nhập vào mục “Tài khoản đã có sẵn”.",
+    "auth/invalid-email": "Email không hợp lệ.",
+    "auth/weak-password": "Mật khẩu quá yếu, cần tối thiểu 8 ký tự.",
+    "auth/operation-not-allowed": "Chưa bật đăng nhập Email/Password trong Firebase Authentication.",
+    "auth/network-request-failed": "Mất kết nối mạng, thử lại sau."
+  };
+  return m[err.code] || err.message;
+}
+
+async function vUsers(){
+  $("#main").innerHTML = `
+    <div class="head"><div><h1>Tài khoản</h1><div class="sub">Tạo tài khoản và phân quyền cho người dùng</div></div>
+      <button class="btn" data-act="user-new">Thêm tài khoản</button></div>
+    <div class="toolbar"><input id="uQ" type="search" placeholder="Tìm theo tên hoặc email" value="${esc(uSearch)}"></div>
+    <div id="ubody"><div class="empty">Đang tải…</div></div>`;
+  $("#uQ").oninput = e => { uSearch = e.target.value; renderUsers(); };
+  try {
+    const snap = await getDocs(collection(db, "users"));
+    usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err){
+    $("#ubody").innerHTML = `<div class="empty">Không tải được danh sách (${esc(err.message)}). Kiểm tra Firestore Rules.</div>`;
+    return;
+  }
+  if (view === "users") renderUsers();
+}
+
+function renderUsers(){
+  if (!$("#ubody")) return;
+  const q = fold(uSearch.trim());
+  const list = usersList.filter(u => !q || fold((u.name || "") + " " + (u.email || "")).includes(q))
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "vi"));
+  $("#ubody").innerHTML = list.length ? `<div class="scroll"><table>
+    <thead><tr><th>Người dùng</th><th>Vai trò</th></tr></thead><tbody>
+    ${list.map(u => `<tr data-act="user-open" data-id="${esc(u.id)}" style="cursor:pointer">
+      <td><strong>${esc(u.name || "(chưa có tên)")}</strong>${u.id === me.uid ? `<span class="badge">Bạn</span>` : ""}${u.active === false ? `<span class="badge" style="color:var(--danger);border-color:var(--danger)">Đã khóa</span>` : ""}
+        <div class="sub">${esc(u.email || "chưa có email")}</div></td>
+      <td>${esc(roleText(u))}</td></tr>`).join("")}</tbody></table></div>
+    <div class="hint" style="margin-top:8px">${usersList.length} tài khoản. Không xóa tài khoản, chỉ khóa để giữ lại lịch sử thao tác.</div>`
+    : `<div class="empty">${usersList.length ? "Không có kết quả phù hợp." : "Chưa có hồ sơ tài khoản nào."}</div>`;
+}
+
+function userForm(u = {}){
+  const isNew = !u.id;
+  return `
+  <form class="dlg form" id="fu" data-id="${esc(u.id || "")}">
+    <h2 class="full">${isNew ? "Thêm tài khoản" : "Sửa tài khoản"}</h2>
+    <label class="full">Họ và tên *<input name="name" required value="${esc(u.name)}"></label>
+    <label class="full">Email đăng nhập *<input type="email" name="email" required value="${esc(u.email)}" ${!isNew && u.email ? "readonly" : ""}>
+      ${!isNew && !u.email ? `<div class="hint">Hồ sơ này chưa có email. Nhập đúng email đăng nhập để gửi được thư đặt lại mật khẩu.</div>` : ""}</label>
+    <label class="full">Vai trò *<select name="role" id="uRole" required>
+      <option value="">Chọn vai trò</option>
+      ${Object.entries(ROLE_LABELS).map(([k, v]) => opt(k, u.role, v)).join("")}</select></label>
+    <label id="uTribeWrap" class="full">Chi phái *<select name="tribe">
+      <option value="">Chọn chi phái</option>${TRIBES.map(t => opt(t, u.tribe, tribeName(t))).join("")}</select></label>
+    <label id="uSsWrap" class="full">Vai trò trong Trường Chúa Nhật<select name="ss">
+      <option value="">Không tham gia</option>${Object.entries(SS_LABELS).map(([k, v]) => opt(k, u.ss, v)).join("")}</select>
+      <div class="hint">Giáo viên, trợ giảng chỉ thấy các lớp và khóa được phân công (Trưởng ban nhập email của họ khi tạo lớp, khóa).</div></label>
+    ${isNew ? `
+    <label class="full">Mật khẩu tạm thời
+      <div style="display:flex;gap:8px"><input name="pw" id="uPw" value="${genPassword()}" minlength="8" autocomplete="off" style="font-family:ui-monospace,monospace">
+        <button type="button" class="btn ghost sm" data-act="user-genpw">Tạo lại</button></div>
+      <div class="hint">Mật khẩu chỉ hiện một lần sau khi tạo. Yêu cầu người dùng bấm “Đổi mật khẩu” ngay sau lần đăng nhập đầu tiên.</div></label>
+    <details class="full"><summary class="hint" style="cursor:pointer">Tài khoản đã có sẵn trong Firebase Authentication?</summary>
+      <label style="margin-top:8px">UID<input name="uid" placeholder="Dán UID từ Firebase Console" autocomplete="off"></label>
+      <div class="hint">Nếu nhập UID, hệ thống chỉ tạo hồ sơ phân quyền, không tạo tài khoản đăng nhập mới.</div></details>`
+    : `<label class="full check"><input type="checkbox" name="active" ${u.active === false ? "" : "checked"}> Đang hoạt động (bỏ chọn để khóa tài khoản)</label>`}
+    <div class="dlg-foot full">
+      ${isNew ? "" : `<button type="button" class="btn ghost" data-act="user-reset" data-id="${esc(u.id)}">Gửi email đặt lại mật khẩu</button>`}
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">${isNew ? "Tạo tài khoản" : "Lưu"}</button>
+    </div>
+  </form>`;
+}
+
+function syncUserForm(){
+  const f = $("#fu");
+  if (!f) return;
+  const r = f.role.value;
+  $("#uTribeWrap").classList.toggle("hidden", r !== "tribe");
+  $("#uSsWrap").classList.toggle("hidden", !(r === "tribe" || r === "ss"));
+  f.tribe.required = r === "tribe";
+  f.ss.required = r === "ss";
+  f.ss.options[0].textContent = r === "ss" ? "Chọn vai trò" : "Không tham gia";
+}
+
+function openUserForm(u = {}){
+  if (u.id && u.id === me.uid){
+    openDialog(`<div class="dlg"><h2>${esc(u.name || "Tài khoản của bạn")}</h2>
+      <p class="muted">Đây là tài khoản của bạn (${esc(roleText(u))}). Để tránh tự khóa quyền quản trị, bạn không thể tự đổi vai trò hoặc khóa chính mình. Nhờ một quản trị viên khác nếu cần.</p>
+      <div class="dlg-foot"><span class="spacer"></span><button class="btn ghost" data-act="close">Đóng</button>
+      <button class="btn" data-act="pw-reset">Gửi email đổi mật khẩu cho tôi</button></div></div>`);
+    return;
+  }
+  openDialog(userForm(u));
+  $("#fu").addEventListener("change", syncUserForm);
+  syncUserForm();
+}
+
+async function saveUser(id, fd){
+  const role = fd.get("role");
+  const name = fd.get("name").trim();
+  const email = fd.get("email").trim().toLowerCase();
+  const tribe = role === "tribe" ? Number(fd.get("tribe")) : null;
+  const ss = (role === "tribe" || role === "ss") ? (fd.get("ss") || null) : null;
+  if (!name) return alertErr("Vui lòng nhập họ tên.");
+  if (!Object.keys(ROLE_LABELS).includes(role)) return alertErr("Vui lòng chọn vai trò.");
+  if (role === "tribe" && !TRIBES.includes(tribe)) return alertErr("Vui lòng chọn chi phái.");
+  if (role === "ss" && !ss) return alertErr("Vui lòng chọn vai trò trong Trường Chúa Nhật.");
+  const base = { name, role, tribe, ss, email };
+
+  if (id){
+    const active = fd.get("active") === "on";
+    try { await updateDoc(doc(db, "users", id), { ...base, active, updatedBy: me.name, updatedAt: serverTimestamp() }); }
+    catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+    Object.assign(usersList.find(u => u.id === id), { ...base, active });
+    closeDialog(); renderUsers();
+    return;
+  }
+
+  if (usersList.some(u => u.email === email)) return alertErr("Email này đã có hồ sơ tài khoản. Hãy mở hồ sơ đó để sửa.");
+  const manualUid = (fd.get("uid") || "").trim();
+  if (manualUid && usersList.some(u => u.id === manualUid)) return alertErr("UID này đã có hồ sơ phân quyền.");
+  const pw = fd.get("pw") || "";
+  let uid = manualUid;
+  if (!uid){
+    if (pw.length < 8) return alertErr("Mật khẩu tạm cần tối thiểu 8 ký tự.");
+    try {
+      // Dùng ứng dụng Firebase phụ để tạo tài khoản mà không làm quản trị viên bị đăng xuất
+      const cred = await createUserWithEmailAndPassword(secAuth, email, pw);
+      uid = cred.user.uid;
+      await signOut(secAuth);
+    } catch (err){ return alertErr(authMsg(err)); }
+  }
+  try {
+    await setDoc(doc(db, "users", uid), { ...base, active: true, createdBy: me.name, createdAt: serverTimestamp() });
+  } catch (err){
+    return alertErr(`Đã tạo tài khoản đăng nhập nhưng chưa lưu được phân quyền (${err.message}). UID: ${uid}. Mở lại “Thêm tài khoản”, nhập UID này vào mục “Tài khoản đã có sẵn” để hoàn tất.`);
+  }
+  usersList.push({ id: uid, ...base, active: true });
+  closeDialog();
+  showCredentials({ name, email, pw: manualUid ? null : pw });
+  renderUsers();
+}
+
+function showCredentials({ name, email, pw }){
+  lastCred = `Sổ Tín Hữu\nĐịa chỉ: ${location.origin}${location.pathname}\nEmail: ${email}\n`
+    + (pw ? `Mật khẩu tạm: ${pw}\nVui lòng bấm “Đổi mật khẩu” sau khi đăng nhập lần đầu.` : "Dùng mật khẩu hiện có của tài khoản này.");
+  openDialog(`<div class="dlg"><h2>Đã tạo tài khoản cho ${esc(name)}</h2>
+    <p class="muted">Gửi thông tin này cho người dùng qua kênh riêng. ${pw ? "Mật khẩu chỉ hiện một lần, đóng hộp thoại là không xem lại được." : ""}</p>
+    <div class="cred">${esc(lastCred)}</div>
+    <div class="dlg-foot"><span class="spacer"></span>
+      <button class="btn ghost" data-act="close">Đóng</button>
+      <button class="btn" data-act="user-copy">Sao chép</button></div></div>`);
+}
+
+async function sendReset(email){
+  if (!email) return alertErr("Hồ sơ này chưa có email.");
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert(`Đã gửi email đặt lại mật khẩu tới ${email}.`);
+  } catch (err){ alertErr(authMsg(err)); }
+}
+
+async function userAct(a, el){
+  const id = el.dataset.id;
+  if (a === "user-new") return openUserForm({});
+  if (a === "user-open") return openUserForm(usersList.find(u => u.id === id));
+  if (a === "user-genpw"){ const i = $("#uPw"); if (i) i.value = genPassword(); return; }
+  if (a === "user-reset") return sendReset(usersList.find(u => u.id === id)?.email || $("#fu")?.email.value.trim().toLowerCase());
+  if (a === "user-copy"){
+    try { await navigator.clipboard.writeText(lastCred); el.textContent = "Đã sao chép"; }
+    catch { alertErr("Trình duyệt không cho sao chép tự động. Hãy bôi đen nội dung và sao chép thủ công."); }
+  }
+}
+
+/* ============ SỰ KIỆN CHUNG ============ */
+document.addEventListener("focusin", e => { if (e.target.classList?.contains("qamt")) qActive = e.target; });
+
+document.addEventListener("click", async e => {
+  const act = e.target.closest("[data-act]");
+  if (act){
+    e.preventDefault();
+    const a = act.dataset.act, id = act.dataset.id;
+    if (a === "close") return closeDialog();
+    if (a === "logout") return signOut(auth);
+    if (a === "pw-reset") return sendReset(auth.currentUser?.email);
+    if (a.startsWith("user-")) return userAct(a, act);
+    if (a === "nav"){ view = act.dataset.view; return render(); }
+    if (a === "add-member") return openMemberForm({});
+    if (a === "edit-member") return openMemberForm(members.find(x => x.id === id));
+    if (a === "del-member") return deleteMember(id);
+    if (a === "add-household") return openHouseholdForm({});
+    if (a === "edit-household") return openHouseholdForm(households.find(x => x.id === id));
+    if (a === "del-household") return deleteHousehold(id);
+    if (a === "add-to-household"){
+      const h = households.find(x => x.id === id);
+      closeDialog();
+      return openMemberForm({ householdId: id, tribe: h?.tribe });
+    }
+    if (a === "add-course") return openCourseForm();
+    if (a === "del-enroll") return deleteEnroll(id);
+    if (a === "export") return exportCSV();
+    if (a === "add-offering") return openOfferingForm({});
+    if (a === "del-offering") return deleteOffering(id);
+    if (a === "off-tab"){ offTab = act.dataset.tab; return vOfferings(); }
+    if (a === "export-offerings") return exportOfferings();
+    if (a === "export-report") return exportReport();
+    if (a === "q-add-line"){
+      $("#qLines").insertAdjacentHTML("beforeend", lineRow(store.get("fund", FUNDS[0])));
+      $("#qLines .qline:last-child .qamt").focus();
+      return;
+    }
+    if (a === "q-del-line"){
+      if (document.querySelectorAll("#qLines .qline").length > 1) act.closest(".qline").remove();
+      $("#fq")?.dispatchEvent(new Event("input"));
+      return;
+    }
+    if (a === "q-amt"){
+      const t = (qActive && document.body.contains(qActive)) ? qActive : $("#qLines .qamt");
+      t.value = act.dataset.v;
+      t.dispatchEvent(new Event("input", { bubbles: true }));
+      t.focus();
+      return;
+    }
+    if (a === "q-test") return printReceipt(testReceipt());
+    if (a === "reprint") return printReceipt(receiptLines(act.dataset.no));
+    if (a === "void-receipt") return voidReceipt(act.dataset.no);
+    if (a.startsWith("ss-")) return ssAct(a, act);
+    return;
+  }
+  const row = e.target.closest("[data-open]");
+  if (row){
+    e.preventDefault();
+    const [k, id] = row.dataset.open.split(":");
+    if (k === "m") openMemberDetail(id);
+    if (k === "h") openHouseholdDetail(id);
+    if (k === "o") openOfferingDetail(id);
+  }
+});
+
+document.addEventListener("submit", async e => {
+  const f = e.target;
+  e.preventDefault();
+  const fd = new FormData(f);
+  if (f.id === "fm")      return saveMember(f.dataset.id || null, fd);
+  if (f.id === "fh")      return saveHousehold(f.dataset.id || null, fd);
+  if (f.id === "fc")      return saveCourse(fd);
+  if (f.id === "fe")      return enroll(f.dataset.member, fd);
+  if (f.id === "fu")      return saveUser(f.dataset.id || null, fd);
+  if (f.id === "fq")      return saveQuick(fd);
+  if (f.id === "fcls")    return saveClass(f.dataset.id || null, fd);
+  if (f.id === "fcrs")    return saveCourseSS(f.dataset.id || null, fd);
+  if (f.id === "fadd")    return ssAddMember(fd, f.dataset.kind);
+  if (f.id === "fo")      return saveOffering(f.dataset.id || null, fd, e.submitter?.dataset.next === "1");
+});
+</script>
+</body>
+</html>
