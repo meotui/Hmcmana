@@ -3318,6 +3318,16 @@ function normBirthday(v){
   if (m){ if (+m[2] < 1 || +m[2] > 12 || +m[1] < 1 || +m[1] > 31) throw new Error(`Sinh nhật không hợp lệ: “${s0}”`); return `${pad2(+m[1])}/${pad2(+m[2])}`; }
   throw new Error(`Sinh nhật không hợp lệ: “${s0}” (dùng dd/mm/yyyy hoặc dd/mm)`);
 }
+// Xếp ban theo tuổi theo dãy tuổi đã cấu hình; không đoán khi không có năm sinh
+function ministryForAge(y, gender){
+  const a = ageOf(y);
+  if (a == null) return "";
+  const hit = UNIT_RANGES.find(u => a >= u.ageMin && a <= u.ageMax);
+  if (hit) return hit.name;
+  if (gender === "Nữ" && MINISTRIES.includes("Phụ nữ")) return "Phụ nữ";
+  if (gender === "Nam" && MINISTRIES.includes("Nam giới")) return "Nam giới";
+  return "";
+}
 const yearOfBirthday = t => { const m = String(t || "").match(/\/(\d{4})$/); return m ? Number(m[1]) : null; };
 
 /* ============ BAN THƯ KÝ: NHẬP HÀNG LOẠT TỪ EXCEL ============ */
@@ -3379,7 +3389,7 @@ function importSpec(target){
       { key: "birthYear", label: "Năm sinh", parse: v => normInt(v, "Năm sinh", 1900, NOW), note: "Năm, ví dụ 1980" },
       { key: "faithYear", label: "Năm tin Chúa", parse: v => normInt(v, "Năm tin Chúa", 1900, NOW), note: "Năm" },
       { key: "baptismYear", label: "Năm báp-têm", parse: v => normInt(v, "Năm báp-têm", 1900, NOW), note: "Năm" },
-      { key: "tribe", label: "Chi phái", parse: v => { const m = normStr(v).match(/(\d+)/); const n = m ? Number(m[1]) : NaN; if (!TRIBES.includes(n)) throw new Error(`Chi phái không hợp lệ: “${normStr(v)}” (1 đến 8)`); return n; }, note: "Số từ 1 đến 8, bắt buộc với tín hữu của hội thánh" },
+      { key: "tribe", label: "Chi phái", parse: v => { const m = normStr(v).match(/(\d+)/); const n = m ? Number(m[1]) : NaN; if (!TRIBES.includes(n)) throw new Error(`Chi phái không hợp lệ: “${normStr(v)}” (1 đến 8)`); return n; }, note: "Số chi phái (không bắt buộc). Để trống nếu không thuộc chi phái nào" },
       { key: "ministry", label: "Ban", parse: v => normOption(v, MINISTRIES, "Ban"), note: "Một trong: " + MINISTRIES.join(", ") },
       { key: "birthday", label: "Sinh nhật", parse: normBirthday, note: "dd/mm/yyyy hoặc dd/mm" },
       { key: "phone", label: "Số điện thoại", parse: normPhone, note: "Chỉ số" },
@@ -3388,12 +3398,12 @@ function importSpec(target){
       { key: "note", label: "Ghi chú", parse: normStr, note: "" }
     ];
     return { title: "Danh sách tín hữu", coll: "members", cols,
-      check: v => { if (v.memberType !== "Vãng lai" && !v.tribe) throw new Error("Thiếu chi phái (bắt buộc với tín hữu của hội thánh)"); },
+      check: () => {},
       sig: v => fold(v.name) + "|" + (v.birthYear || yearOfBirthday(v.birthday) || ""),
       existing: () => members.map(m => fold(m.fullName) + "|" + (m.birthYear || "")),
       pickKeys: [],
       build: v => ({ fullName: v.name, searchName: fold(v.name), gender: v.gender, birthYear: v.birthYear ?? yearOfBirthday(v.birthday), birthday: v.birthday || null, phone: v.phone || null, faithYear: v.faithYear,
-        baptismYear: v.baptismYear, tribe: v.tribe, ministry: v.ministry, householdId: null, relation: null,
+        baptismYear: v.baptismYear, tribe: v.tribe, ministry: v.ministry || ministryForAge(v.birthYear ?? yearOfBirthday(v.birthday), v.gender) || null, householdId: null, relation: null,
         address: v.address || "", note: v.note || "", memberType: v.memberType || "Thành viên", source: "import" }),
       after: items => items.forEach(it => members.push({ id: it.id, ...it.data })) };
   }
