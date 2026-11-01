@@ -203,6 +203,7 @@
   .fchip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   .qrbox{display:flex;justify-content:center;align-items:center;margin:12px 0;min-height:220px}
   .qrbox img,.qrbox canvas{width:220px!important;height:220px!important}
+  .nav-main{font-weight:700}
   .pub{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--paper)}
 
   /* Mobile */
@@ -299,10 +300,10 @@
       <button data-act="nav" data-view="overview" data-view-btn data-roles="admin,tribe">Dashboard</button>
       <button data-act="nav" data-view="reports" data-view-btn data-roles="admin,tribe,secretariat,finance">Báo cáo</button>
       <button data-act="nav" data-view="secretariat" data-view-btn data-roles="admin,secretariat">Ban Thư ký</button>
+      <button data-act="nav" data-view="quick" data-view-btn data-roles="finance" class="nav-main">Thu tiền dâng</button>
       <button data-act="nav" data-view="offerings" data-view-btn data-roles="admin,finance">Ban Tài chính</button>
       <button data-act="nav" data-view="members" data-view-btn data-roles="admin,tribe">Tín hữu</button>
       <button data-act="nav" data-view="households" data-view-btn data-roles="admin,tribe">Hộ gia đình</button>
-      <button data-act="nav" data-view="courses" data-view-btn data-roles="admin,tribe">Khóa học</button>
       <button data-act="nav" data-view="sschool" data-view-btn><span class="long">Trường Chúa Nhật</span><span class="short">Trường CN</span></button>
       <button data-act="nav" data-view="tnsch" data-view-btn data-roles="admin,tn">Thiếu nhi Ấu</button>
       <button data-act="nav" data-view="care" data-view-btn data-roles="admin,care">Ban Chăm sóc</button>
@@ -517,7 +518,7 @@ onAuthStateChanged(auth, async user => {
   resetTn();
   VS.cache = {}; VS.tab = "list";
   offeringsByYear = {};
-  view = isFinance() ? "offerings" : me.role === "ss" ? "sschool" : me.role === "secretariat" ? "secretariat" : me.role === "care" ? "care" : me.role === "tn" ? "tnsch" : me.role === "visit" ? "visits" : "overview";
+  view = isFinance() ? "quick" : me.role === "ss" ? "sschool" : me.role === "secretariat" ? "secretariat" : me.role === "care" ? "care" : me.role === "tn" ? "tnsch" : me.role === "visit" ? "visits" : "overview";
   offTab = isFinance() ? "quick" : "list";
   $("#churchName").textContent = "HMC Mục Vụ";
   $("#login").classList.add("hidden");
@@ -536,20 +537,20 @@ function showLogin(msg = ""){
 /* ============ ĐIỀU HƯỚNG ============ */
 function render(){
   let allowed = [];
-  if (isFinance()) allowed = ["offerings", "reports"];
+  if (isFinance()) allowed = ["quick", "offerings", "reports"];
   else if (me.role === "secretariat") allowed = ["secretariat", "reports"];
   else if (me.role === "care") allowed = ["care"];
   else if (me.role === "tn") allowed = ["tnsch"];
   else if (me.role === "visit") allowed = ["visits"];
   else {
-    if (me.role === "admin" || me.role === "tribe") allowed.push("overview","members","households","courses","reports");
+    if (me.role === "admin" || me.role === "tribe") allowed.push("overview","members","households","reports");
     if (isAdmin()) allowed.push("offerings", "users", "secretariat", "care", "tnsch", "visits");
     if (ssAny()) allowed.push("sschool");
   }
   if (!allowed.includes(view)) view = allowed[0];
   document.querySelectorAll("[data-view-btn]").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   ({ overview: () => withRegular(vOverview), members: vMembers, households: vHouseholds, courses: vCourses,
-     reports: vReports, offerings: vOfferings, sschool: vSchool, users: vUsers, secretariat: vSecretariat, care: vCare, tnsch: vTn, visits: vVisits })[view]();
+     reports: vReports, quick: () => { offTab = "quick"; return vOfferings(); }, offerings: vOfferings, sschool: vSchool, users: vUsers, secretariat: vSecretariat, care: vCare, tnsch: vTn, visits: vVisits })[view]();
   if (view === "overview" || view === "secretariat") showReminder();
 }
 
@@ -955,7 +956,7 @@ async function vOfferings(){
   if (canEditFinance()){
     try { pending = await loadPledges(); } catch (err) { pending = pledgesOpen || []; }
   }
-  if (view !== "offerings") return;
+  if (!["offerings", "quick"].includes(view)) return;
   const tb = (k, l) => `<button data-act="off-tab" data-tab="${k}" class="${offTab === k ? "on" : ""}">${l}</button>`;
   $("#main").innerHTML = `
     <div class="head"><div><h1>Ban Tài chính</h1>
@@ -970,7 +971,7 @@ async function vOfferings(){
     if (offTab === "quick") await loadOfferingYear(NOW);
     else if (offTab === "list") await loadOfferingYear(offFilter.year);
     else if (offTab === "report") await Promise.all(reportYears().map(y => loadOfferingYear(y)));
-    if (view !== "offerings") return;
+    if (!["offerings", "quick"].includes(view)) return;
     ({ quick: offQuick, pledges: offPledges, list: offList, report: offReport })[offTab]();
   } catch (err){
     if ($("#offbody")) $("#offbody").innerHTML = `<div class="empty">Không tải được dữ liệu dâng hiến (${esc(err.message)}). Kiểm tra quyền truy cập trong Firestore Rules.</div>`;
