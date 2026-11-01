@@ -217,6 +217,9 @@
   .sugg small{display:block;color:var(--muted);font-size:.8rem}
   .sugg .more{padding:8px 12px;color:var(--muted);font-size:.85rem}
 
+  /* Chế độ chỉ xem (Mục sư quản nhiệm): ẩn nút thêm, sửa, xóa; vẫn giữ mở, xuất, chuyển tab */
+  body.ro [data-act]:not([data-act^="nav"]):not([data-act*="open"]):not([data-act*="tab"]):not([data-act*="export"]):not([data-act*="back"]):not([data-act^="rp-"]):not([data-act="close"]):not([data-act="menu"]):not([data-act="logout"]):not([data-act="pw-reset"]) { display: none !important; }
+
   /* Mobile */
   @media (max-width:820px){
     .app{grid-template-columns:1fr}
@@ -395,7 +398,10 @@ const isFinance = () => me?.role === "finance";
 const isLeader = () => me?.role === "leader";                                    // Mục sư quản nhiệm: chỉ xem
 const isTop = () => isAdmin() || isLeader();                                     // đọc toàn hội thánh
 const isBanHead = () => !!me?.ministry && (me?.role === "ministry" || me?.ss === "head" || me?.tn === "head");
-const banOwned = m => isBanHead() && (m?.ministry === me.ministry || (m?.groups || []).includes(me.ministry));
+const sameBan = (a, b) => !!a && !!b && fold(a) === fold(b);
+const banOwned = m => isBanHead() && (sameBan(m?.ministry, me.ministry) || (m?.groups || []).some(g => sameBan(g, me.ministry)));
+// Đưa tên ban về đúng tên trong cấu hình (ví dụ "Tráng Niên" -> "Tráng niên")
+const canonMinistry = x => { if (!x) return x; const hit = MINISTRIES.find(k => sameBan(k, x)); return hit || x; };
 const canEditFinance = () => isSysAdmin() || isFinance();                        // nhận tiền dâng: Admin và Ban Tài chính
 const canViewFinance = () => isAdmin() || isFinance() || isLeader();
 const canEditMember = m => isAdmin() || (me?.role === "tribe" && m?.tribe === me.tribe) || banOwned(m);
@@ -537,6 +543,7 @@ onAuthStateChanged(auth, async user => {
   me = { uid: user.uid, name: d.name || user.email, role: d.role, tribe: d.tribe ? Number(d.tribe) : null,
          ss: ["head","secretary","teacher"].includes(d.ss) ? d.ss : null, email: String(user.email || "").toLowerCase(), tn: ["head","teacher"].includes(d.tn) ? d.tn : null, ministry: d.ministry || null };
   $("#meName").textContent = me.name;
+  document.body.classList.toggle("ro", me.role === "leader");   // Mục sư: chỉ xem
   const ssLabel = { head: "Trưởng ban Trường Chúa Nhật", secretary: "Thư ký Trường Chúa Nhật", teacher: "Giáo viên / trợ giảng" }[me.ss] || "";
   $("#meRole").textContent = isSysAdmin() ? "Quản trị hệ thống (toàn quyền)" : me.role === "secretariat" ? "Ban Thư ký" : isLeader() ? "Mục sư / Thư ký hội thánh" : me.role === "ministry" ? "Trưởng ban " + me.ministry
     : isFinance() ? "Trưởng ban tài chính"
@@ -588,6 +595,7 @@ function render(){
     if (me.role === "tribe" || isBanHead()) allowed.push("baninfo");
     if (isBanHead() && me.role !== "ministry" && !allowed.includes("members")) allowed.push("members");
     if (isAdmin()) allowed.push("offerings", "users", "secretariat", "care", "tnsch", "visits", "cfg");
+    if (isLeader()) allowed.push("care", "visits", "tnsch", "sschool");
     if (isSysAdmin()) allowed.push("quick");
     if (ssAny()) allowed.push("sschool");
   }
@@ -791,7 +799,7 @@ async function saveMember(id, fd){
     faithYear: num(fd.get("faithYear")),
     baptismYear: num(fd.get("baptismYear")),
     tribe,
-    ministry: (isBanHead() && !isAdmin()) ? ((id && members.find(x => x.id === id)?.ministry) || me.ministry) : (fd.get("ministry") || null),
+    ministry: canonMinistry((isBanHead() && !isAdmin()) ? ((id && members.find(x => x.id === id)?.ministry) || me.ministry) : (fd.get("ministry") || null)),
     email: (fd.get("email") || "").trim().toLowerCase() || null,
     phone: phoneV,
     birthday: bdV,
@@ -2849,6 +2857,7 @@ function secMemberList(){
 }
 function secMembers(){
   $("#secbody").innerHTML = `
+    <div id="nbStat" class="figures fin" style="margin-bottom:16px"></div>
     <div class="toolbar">
       <input id="mQ" type="search" placeholder="Tìm theo tên" value="${esc(SEC.mq)}">
       <select id="mT"><option value="">Mọi chi phái</option>${TRIBES.map(t => opt(t, SEC.mTribe, tribeName(t))).join("")}</select>
@@ -2869,7 +2878,19 @@ function secMembers(){
   $("#mY").onchange = e => { SEC.mType = e.target.value; rerender(); };
   renderSecMembers();
 }
+// Số người tin nhận Chúa: lấy từ danh sách Tân tín hữu của Ban Chăm sóc
+function renderNewBelievers(list){
+  const el = $("#nbStat");
+  if (!el) return;
+  const inYear = list.filter(r => String(r.convertedAt || "").startsWith(String(NOW))).length;
+  const noDate = list.filter(r => !r.convertedAt).length;
+  el.innerHTML = `<div class="lead"><b>${inYear}</b><span>Tin nhận Chúa năm ${NOW}</span></div>
+    <div><b>${list.length}</b><span>Tổng tân tín hữu</span></div>
+    ${noDate ? `<div class="sub" style="grid-column:1/-1">${noDate} người chưa ghi ngày tin Chúa, chỉ tính vào tổng.</div>` : ""}`;
+}
+
 function renderSecMembers(){
+  loadCare("newbeliever").then(renderNewBelievers).catch(() => {});
   const list = secMemberList();
   $("#mCount").textContent = `${list.length} người`;
   if (!list.length){ $("#mTable").innerHTML = `<div class="empty">Không có tín hữu khớp bộ lọc.</div>`; return; }
@@ -3272,7 +3293,7 @@ async function saveSecMember(id, fd){
   const data = { fullName, searchName: fold(fullName), email: (fd.get("email") || "").trim().toLowerCase() || null,
     phone: phoneV, birthday: bdV, gender: fd.get("gender") || null, birthYear,
     faithYear: num(fd.get("faithYear")), baptismYear: num(fd.get("baptismYear")), tribe,
-    ministry: fd.get("ministry") || null, address: fd.get("address").trim(), note: fd.get("note").trim(), memberType };
+    ministry: canonMinistry(fd.get("ministry") || null), address: fd.get("address").trim(), note: fd.get("note").trim(), memberType };
   try {
     if (id){
       await updateDoc(doc(db, "members", id), { ...data, groups: groupsOf(data), updatedBy: me.name, updatedAt: serverTimestamp() });
@@ -3336,7 +3357,7 @@ function groupsOf(m){
   const overlayOf = u => Array.isArray(u.overlayFor) ? u.overlayFor
     : (OFFICIAL_MINISTRIES.find(o => fold(o.name) === fold(u.name))?.overlayFor || []);
   if (m?.gender === "Nữ")
-    src.filter(u => u.kind === "ministry" && u.active !== false && overlayOf(u).includes(m.ministry))
+    src.filter(u => u.kind === "ministry" && u.active !== false && overlayOf(u).some(x => sameBan(x, m.ministry)))
       .forEach(u => g.push(u.name));
   return [...new Set(g)];
 }
@@ -4914,6 +4935,7 @@ function rpMembers(){
 /* ---- Báo cáo Ban Thư ký ---- */
 async function rpSecretariat(){
   await Promise.all(["marriage", "dedication", "baptism", "death", "discipline"].map(t => loadRecs(t)));
+  const nbList = await loadCare("newbeliever").catch(() => []);
   if (view !== "reports" || RP.tab !== "secretariat") return;
   const years = rpYears();
   const sc = rpSecScope();
@@ -4934,6 +4956,7 @@ async function rpSecretariat(){
       <div><b>${active.length}</b><span>Đang áp dụng kỷ luật (${due} đến hạn trong ${REMIND_DAYS} ngày)</span></div>
     </div>
     ${rpTable("Theo kỳ", ["Kỳ", ...SEC_TYPES.map(s => s[1]), "Tổng"], ptRows)}
+    ${rpTable("Tin nhận Chúa theo kỳ (Ban Chăm sóc)", ["Kỳ", "Số người"], rpPeriodList().map(([k, l]) => [l, nbList.filter(r => r.convertedAt && rpYears().includes(Number(String(r.convertedAt).slice(0, 4))) && rpPerOf(r.convertedAt) === k).length]))}
     ${rpTable("Qua đời theo tuổi hưởng thọ", ["Nhóm tuổi", "Số người"], ageRows)}
     <div class="section"><h2>Xuất sổ chi tiết</h2>
       <div class="toolbar"><select id="rSType">${SEC_TYPES.map(([t, l]) => opt(t, RP.sType, l)).join("")}</select>${rpExportBtns("sec-detail")}</div>
@@ -5407,15 +5430,24 @@ async function vUnits(){
 // Cập nhật trường nhóm (ban chính + Ban Phụ nữ) cho toàn bộ tín hữu khi đổi quy tắc
 async function syncGroups(){
   if (!isAdmin()) return;
-  const todo = members.filter(m => JSON.stringify(groupsOf(m)) !== JSON.stringify(m.groups || []));
+  const fix = m => {
+    const ministry = canonMinistry(m.ministry);
+    const cur = { ...m, ministry };
+    return { ministry, groups: groupsOf(cur) };
+  };
+  const todo = members.filter(m => {
+    const f = fix(m);
+    return f.ministry !== m.ministry || JSON.stringify(f.groups) !== JSON.stringify(m.groups || []);
+  });
   if (!todo.length) return alert("Nhóm ban của tất cả tín hữu đã đúng.");
   if (!confirm(`Cập nhật nhóm ban cho ${todo.length} tín hữu?`)) return;
   try {
     for (let i = 0; i < todo.length; i += BATCH){
       const b = writeBatch(db);
       todo.slice(i, i + BATCH).forEach(m => {
-        m.groups = groupsOf(m);
-        b.update(doc(db, "members", m.id), { groups: m.groups, updatedBy: me.name, updatedAt: serverTimestamp() });
+        const f = fix(m);
+        m.ministry = f.ministry; m.groups = f.groups;
+        b.update(doc(db, "members", m.id), { ministry: f.ministry, groups: f.groups, updatedBy: me.name, updatedAt: serverTimestamp() });
       });
       await b.commit();
     }
@@ -5431,7 +5463,7 @@ async function applyOfficialAges(){
     const b = writeBatch(db);
     OFFICIAL_MINISTRIES.forEach((o, i) => {
       const cur = UNITS.find(u => u.kind === "ministry" && fold(u.name) === fold(o.name));
-      const data = { kind: "ministry", name: o.name, ageMin: o.ageMin, ageMax: o.ageMax, active: true,
+      const data = { kind: "ministry", name: cur ? cur.name : o.name, ageMin: o.ageMin, ageMax: o.ageMax, active: true,
         order: i + 1, overlayFor: o.overlayFor || [], updatedBy: me.name, updatedAt: serverTimestamp() };
       if (cur) b.update(doc(db, "units", cur.id), data);
       else b.set(doc(collection(db, "units")), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
