@@ -346,8 +346,8 @@ const CHURCH_NAME = "Hội Thánh Tin Lành";
 const CHURCH_ADDRESS = "Địa chỉ hội thánh";
 const CHURCH_PHONE = "";
 const RECEIPT_FOOTER = "Cảm tạ Chúa. Xin Chúa ban phước cho tấm lòng dâng hiến của anh chị em.";
-const TRIBES = [1,2,3,4,5,6,7,8];
-const MINISTRIES = ["Thiếu nhi","Thiếu niên","Thanh niên","Nam giới","Phụ nữ","Cao niên"];
+let TRIBES = [1,2,3,4,5,6,7,8];
+let MINISTRIES = ["Thiếu nhi","Thiếu niên","Thanh niên","Nam giới","Phụ nữ","Cao niên"];
 const RELATIONS = ["Chủ hộ","Vợ","Chồng","Con","Cha","Mẹ","Anh/Chị/Em","Khác"];
 const COURSE_TYPES = ["Kinh Thánh","Bồi dưỡng","Khác"];
 // Danh mục quỹ: sửa theo thực tế hội thánh. Đổi tên về sau không làm mất dữ liệu cũ (báo cáo vẫn gom theo tên đã lưu).
@@ -378,7 +378,7 @@ const isAdmin = () => me?.role === "admin";
 const isFinance = () => me?.role === "finance";
 const canViewFinance = () => isAdmin() || isFinance();   // Mục sư, Thư ký: chỉ xem
 const canEditFinance = () => isFinance();                // Chỉ trưởng ban tài chính được nhập, sửa, xóa
-const tribeName = t => t ? `Chi phái ${t}` : "Chưa rõ";
+const tribeName = t => t ? (UNIT_NAMES.get(Number(t)) || `Chi phái ${t}`) : "Chưa rõ";
 
 function ageGroup(y){
   const a = ageOf(y);
@@ -393,11 +393,10 @@ function ageGroup(y){
 function suggestMinistry(y, gender){
   const a = ageOf(y);
   if (a == null) return "";
-  if (a <= 11) return "Thiếu nhi";
-  if (a <= 17) return "Thiếu niên";
-  if (a <= 29) return "Thanh niên";
-  if (a >= 60) return "Cao niên";
-  return gender === "Nữ" ? "Phụ nữ" : "Nam giới";
+  const hit = UNIT_RANGES.find(u => a >= u.ageMin && a <= u.ageMax);
+  if (hit) return hit.name;
+  const fallback = gender === "Nữ" ? "Phụ nữ" : "Nam giới";
+  return MINISTRIES.includes(fallback) ? fallback : "";
 }
 const sortByName = (a,b) => givenName(a.fullName).localeCompare(givenName(b.fullName), "vi") || a.fullName.localeCompare(b.fullName, "vi");
 
@@ -523,6 +522,7 @@ onAuthStateChanged(auth, async user => {
   $("#churchName").textContent = "HMC Mục Vụ";
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
+  await loadUnits();
   await loadData();
   await loadReminders();
   render();
@@ -1751,7 +1751,7 @@ function exportReport(){
 const SS = {};
 function resetSchool(){
   Object.assign(SS, { tab: "attend", classes: [], rosters: {}, allRosters: false, sessYear: {}, classId: "", date: "",
-    detailClass: "", courseId: "", cDate: "", year: NOW, month: "", students: {}, cSess: {}, loaded: false });
+    detailClass: "", courseId: "", cDate: "", year: NOW, month: "", students: {}, cSess: {}, exams: null, entries: null, exId: "", loaded: false });
 }
 resetSchool();
 
@@ -1846,13 +1846,13 @@ async function vSchool(){
   $("#main").innerHTML = `
     <div class="head"><div><h1>Trường Chúa Nhật</h1>
       <div class="sub">${ssFull() ? "Quản lý toàn bộ lớp, điểm danh và khóa học" : "Điểm danh và thêm học viên vào lớp được phân công"}</div></div></div>
-    <div class="tabs">${[["attend", "Điểm danh"], ["classes", "Lớp"], ["summary", "Tổng hợp tuần"], ["courses", "Khóa học"]]
+    <div class="tabs">${[["attend", "Điểm danh"], ["classes", "Lớp"], ["summary", "Tổng hợp tuần"], ["courses", "Khóa học"], ["exam", "Thi cuối năm"]]
       .map(([k, l]) => `<button data-act="ss-tab" data-tab="${k}" class="${SS.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
     <div id="ssbody"><div class="empty">Đang tải dữ liệu…</div></div>`;
   try {
     await loadSchool();
     if (view !== "sschool") return;
-    await ({ attend: ssAttend, classes: ssClasses, summary: ssSummary, courses: ssCourses })[SS.tab]();
+    await ({ attend: ssAttend, classes: ssClasses, summary: ssSummary, courses: ssCourses, exam: ssExam })[SS.tab]();
   } catch (err){
     if ($("#ssbody")) $("#ssbody").innerHTML = `<div class="empty">Không tải được dữ liệu (${esc(err.message)}). Kiểm tra quyền trong Firestore Rules.</div>`;
   }
@@ -2156,7 +2156,7 @@ function openCourseFormSS(c = {}){
     <label>Loại<select name="type">${COURSE_TYPES.map(t => opt(t, c.type || "Kinh Thánh", t)).join("")}</select></label>
     <span></span>
     <label>Từ ngày *<input type="date" name="startDate" required value="${esc(c.startDate)}"></label>
-    <label>Đến ngày *<input type="date" name="endDate" required value="${esc(c.endDate)}"></label>
+    <label>Đến ngày (nếu có)<input type="date" name="endDate" value="${esc(c.endDate)}"></label>
     <label class="full">Giáo viên / trợ giảng (email đăng nhập, cách nhau bằng dấu phẩy)<input name="teachers" value="${esc((c.teacherEmails || []).join(", "))}"></label>
     <div class="dlg-foot full"><span class="spacer"></span>
       <button type="button" class="btn ghost" data-act="close">Hủy</button><button class="btn" type="submit">Lưu</button></div>
@@ -2165,7 +2165,7 @@ function openCourseFormSS(c = {}){
 
 async function saveCourseSS(id, fd){
   const startDate = fd.get("startDate"), endDate = fd.get("endDate");
-  if (endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
+  if (endDate && endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
   const data = { name: fd.get("name").trim(), type: fd.get("type"), startDate, endDate, year: Number(startDate.slice(0, 4)),
     teacherEmails: emailsOf(fd.get("teachers")), updatedBy: me.name, updatedAt: serverTimestamp() };
   try {
@@ -2202,7 +2202,7 @@ async function ssCourseDetail(){
   body.innerHTML = `
     <button class="linkbtn" data-act="ss-back-course" style="margin-bottom:12px">← Danh sách khóa học</button>
     <div class="head" style="border:0;margin-bottom:8px"><div><h2>${esc(c.name)}</h2>
-      <div class="sub">${esc(c.type || "")}${c.startDate ? ", " + fmtDate(c.startDate) + " – " + fmtDate(c.endDate) : ""}, ${students.length} học viên, ${held} buổi đã điểm danh</div></div>
+      <div class="sub">${esc(c.type || "")}${c.startDate ? ", " + fmtDate(c.startDate) + (c.endDate ? " – " + fmtDate(c.endDate) : " (không có ngày kết thúc)") : ""}, ${students.length} học viên, ${held} buổi đã điểm danh</div></div>
       ${ssFull() ? `<button class="btn ghost sm" data-act="ss-edit-course" data-id="${c.id}">Sửa khóa</button>` : ""}</div>
     <div class="toolbar">${exportBtns("course-students")} ${exportBtns("course-attendance").replace(/Xuất (CSV|Excel)/g, m => m + " điểm danh")}</div>
 
@@ -2223,7 +2223,7 @@ async function ssCourseDetail(){
     ${students.length && canAdd ? `
       <div class="toolbar"><input type="date" id="cDate" value="${date}" style="max-width:170px">
         ${sessions.slice(-8).map(s => `<button class="chip" data-act="ss-cdate" data-d="${s.date}">${fmtDate(s.date)}</button>`).join("")}</div>
-      ${c.startDate && (date < c.startDate || date > c.endDate) ? `<div class="hint" style="margin-bottom:8px">Ngày này nằm ngoài thời gian khóa học.</div>` : ""}
+      ${c.startDate && (date < c.startDate || (c.endDate && date > c.endDate)) ? `<div class="hint" style="margin-bottom:8px">Ngày này nằm ngoài thời gian khóa học.</div>` : ""}
       ${cur ? `<div class="hint" style="margin-bottom:8px">Đã có điểm danh ngày này (bởi ${esc(cur.updatedBy || "—")}). Lưu lại sẽ ghi đè.</div>` : ""}
       <div class="att-top"><div class="att-count" id="aCount"></div><button class="btn ghost sm" data-act="ss-all-present">Chọn tất cả có mặt</button></div>
       <div class="att-list" id="cList">${students.map(s => `<div class="att-row" style="grid-template-columns:1fr auto"><div class="nm">${esc(s.memberName)}</div>
@@ -2357,6 +2357,14 @@ async function ssAct(a, el){
     case "ss-remove-course-student": return removeFromCourse(id);
     case "ss-cdate": SS.cDate = el.dataset.d; return ssCourseDetail();
     case "ss-save-catt": return saveCourseAtt();
+    case "ss-ex-new": return openExamForm({});
+    case "ss-ex-open": SS.exId = id; return ssExam();
+    case "ss-ex-back": SS.exId = ""; return ssExam();
+    case "ss-ex-edit": return openExamForm(SS.exams.find(x => x.id === id));
+    case "ss-ex-del": return deleteExam(id);
+    case "ss-ex-save": return saveExamScores();
+    case "ss-ex-rm": return removeExamEntry(id);
+    case "ss-ex-export": return ssExamExport(el.dataset.what, el.dataset.fmt);
     case "ss-export": return ssExport(el.dataset.what, el.dataset.fmt);
   }
 }
@@ -2632,12 +2640,13 @@ async function vSecretariat(){
   $("#main").innerHTML = `
     <div class="head"><div><h1>Ban Thư ký</h1><div class="sub">Sổ sách, lãnh đạo theo nhiệm kỳ và các lễ của hội thánh</div></div></div>
     <div class="tabs">${[["members", "Tín hữu"], ["leadership", "Lãnh đạo"], ["discipline", "Kỷ luật"], ["marriage", "Kết hôn"],
-      ["dedication", "Dâng con"], ["baptism", "Báp-têm"], ["death", "Qua đời"]]
+      ["dedication", "Dâng con"], ["baptism", "Báp-têm"], ["death", "Qua đời"], ["units", "Chi phái & ban"]]
       .map(([k, l]) => `<button data-act="sec-tab" data-tab="${k}" class="${SEC.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
     <div id="secbody"><div class="empty">Đang tải dữ liệu…</div></div>`;
   try {
     if (SEC.tab === "members") secMembers();
     else if (SEC.tab === "leadership") await secLeadership();
+    else if (SEC.tab === "units") await secUnits();
     else await secRegistry(SEC.tab);
   } catch (err){
     if ($("#secbody")) $("#secbody").innerHTML = `<div class="empty">Không tải được dữ liệu (${esc(err.message)}). Kiểm tra quyền trong Firestore Rules.</div>`;
@@ -2972,6 +2981,9 @@ async function secAct(a, el){
     case "sec-lnew": return openLeadForm(defaultLead());
     case "sec-lopen": return openLeadForm(SEC.lead.find(r => r.id === id));
     case "sec-ldel": return deleteLead(id);
+    case "sec-unit-new": return openUnitForm({}, el.dataset.kind);
+    case "sec-unit-edit": return openUnitForm(UNITS.find(u => u.id === id));
+    case "sec-unit-seed": return seedUnits();
     case "sec-export": return secExport(el.dataset.what, el.dataset.fmt);
     case "sec-mnew": return openSecMemberForm({});
     case "sec-mopen": return openSecMemberForm(members.find(m => m.id === id));
@@ -3993,7 +4005,7 @@ function openTnProgForm(p = {}){
     <label>Loại<select name="type">${TN_PROG_TYPES.map(t => opt(t, p.type || "Kinh Thánh", t)).join("")}</select></label>
     <span></span>
     <label>Từ ngày *<input type="date" name="startDate" required value="${esc(p.startDate)}"></label>
-    <label>Đến ngày *<input type="date" name="endDate" required value="${esc(p.endDate)}"></label>
+    <label>Đến ngày (nếu có)<input type="date" name="endDate" value="${esc(p.endDate)}"></label>
     <fieldset class="full" style="border:1px solid var(--line);border-radius:var(--r);padding:12px">
       <legend class="sub">Giáo viên / trợ giảng phụ trách</legend>
       ${TN.teachers.length ? TN.teachers.map(t => `<label class="check" style="margin:6px 0"><input type="checkbox" name="tid" value="${esc(t.id)}" ${tids.includes(t.id) ? "checked" : ""} style="width:auto"> ${esc(t.personName)}</label>`).join("") : `<div class="hint">Chưa có giáo viên nào.</div>`}
@@ -4011,7 +4023,7 @@ function openTnProgForm(p = {}){
 async function saveTnProg(id, fd){
   const name = fd.get("name").trim(), startDate = fd.get("startDate"), endDate = fd.get("endDate");
   if (!name) return alertErr("Vui lòng nhập tên chương trình.");
-  if (endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
+  if (endDate && endDate < startDate) return alertErr("Ngày kết thúc phải sau ngày bắt đầu.");
   const picked = fd.getAll("tid");
   const ts = TN.teachers.filter(t => picked.includes(t.id));
   const data = { name, type: fd.get("type"), startDate, endDate, year: Number(startDate.slice(0, 4)),
@@ -4057,7 +4069,7 @@ async function tnProgDetail(){
   $("#tnbody").innerHTML = `
     <button class="linkbtn" data-act="tn-prog-back" style="margin-bottom:12px">← Danh sách chương trình</button>
     <div class="head" style="border:0;margin-bottom:8px"><div><h2>${esc(p.name)}</h2>
-      <div class="sub">${esc(p.type || "")}${p.startDate ? ", " + fmtDate(p.startDate) + " – " + fmtDate(p.endDate) : ""} · ${mem.length} học viên · ${held} buổi đã điểm danh</div></div>
+      <div class="sub">${esc(p.type || "")}${p.startDate ? ", " + fmtDate(p.startDate) + (p.endDate ? " – " + fmtDate(p.endDate) : " (không có ngày kết thúc)") : ""} · ${mem.length} học viên · ${held} buổi đã điểm danh</div></div>
       ${tnFull() ? `<button class="btn ghost sm" data-act="tn-edit-prog" data-id="${p.id}">Sửa chương trình</button>` : ""}</div>
     ${canEdit ? `<form id="faddprog" class="toolbar"><input name="donor" list="ssNames" placeholder="Gõ tên để thêm học viên" autocomplete="off">
       <datalist id="ssNames">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
@@ -4289,9 +4301,9 @@ async function tnAct(a, el){
 /* ============ BAN THĂM VIẾNG ============ */
 const VS = { tab: "list", year: NOW, month: "", group: "", q: "", mode: "month", cache: {} };
 const VISIT_REASONS = ["Bệnh tật", "Nhập viện", "Tang lễ", "Sinh con", "Gia đình khó khăn", "Tân gia", "Mừng sinh nhật", "Khác"];
-const VS_GROUPS = [["", "Chưa rõ"], ...TRIBES.map(t => [`tribe:${t}`, tribeName(t)]),
+const vsGroups = () => [["", "Chưa rõ"], ...TRIBES.map(t => [`tribe:${t}`, tribeName(t)]),
   ...MINISTRIES.map(k => [`ministry:${k}`, "Ban " + k]), ["vangla", "Tín hữu vãng lai"]];
-const groupLabel = g => (VS_GROUPS.find(x => x[0] === g) || ["", "Chưa rõ"])[1];
+const groupLabel = g => (vsGroups().find(x => x[0] === g) || ["", "Chưa rõ"])[1];
 const groupOf = m => !m ? "vangla" : m.memberType === "Vãng lai" ? "vangla"
   : m.tribe ? `tribe:${m.tribe}` : m.ministry ? `ministry:${m.ministry}` : "";
 const personKey = v => v.personId || "n:" + fold(v.personName);
@@ -4316,7 +4328,7 @@ async function vVisits(){
     if (VS.tab === "stats") return vsStats();
     const list = await visitsOf(VS.year);
     if (view !== "visits" || VS.tab !== "list") return;
-    vsList(list);
+    vsList();
   } catch (err){
     if ($("#vsbody")) $("#vsbody").innerHTML = `<div class="empty">Không tải được dữ liệu (${esc(err.message)}). Kiểm tra quyền trong Firestore Rules.</div>`;
   }
@@ -4329,7 +4341,7 @@ function vsList(){
     <div class="toolbar">
       <select id="vY">${years.map(y => opt(y, VS.year, "Năm " + y)).join("")}</select>
       <select id="vM"><option value="">Cả năm</option>${[...Array(12)].map((_, i) => opt(i + 1, VS.month, "Tháng " + (i + 1))).join("")}</select>
-      <select id="vG"><option value="">Mọi nhóm</option>${VS_GROUPS.filter(g => g[0]).map(g => opt(g[0], VS.group, g[1])).join("")}</select>
+      <select id="vG"><option value="">Mọi nhóm</option>${vsGroups().filter(g => g[0]).map(g => opt(g[0], VS.group, g[1])).join("")}</select>
       <input id="vQ" type="search" placeholder="Tìm theo tên" value="${esc(VS.q)}">
       ${vsExportBtns("list")}
     </div>
@@ -4437,7 +4449,7 @@ function openVisitForm(v = {}){
       <datalist id="secNames">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
       <div class="hint">Chọn từ danh sách để tự điền nhóm. Người ngoài hội thánh nhập tên tự do.</div></label>
     <label>Ngày thăm *<input type="date" name="visitDate" required value="${esc(v.visitDate || todayStr())}"></label>
-    <label>Nhóm *<select name="group" required>${VS_GROUPS.map(([k, l]) => opt(k, v.group ?? "", l)).join("")}</select></label>
+    <label>Nhóm *<select name="group" required>${vsGroups().map(([k, l]) => opt(k, v.group ?? "", l)).join("")}</select></label>
     <label>Quà (₫)<input type="number" name="gift" min="0" step="1000" inputmode="numeric" value="${v.gift ?? ""}" placeholder="0"></label>
     <label>Lý do thăm<select name="reason"><option value="">—</option>${VISIT_REASONS.map(r => opt(r, v.reason, r)).join("")}</select></label>
     <label class="full">Nội dung, ghi chú<textarea name="note" rows="4" placeholder="Tình trạng bệnh, hoàn cảnh, điều cần lưu ý khi thăm lần sau…">${esc(v.note)}</textarea></label>
@@ -4807,6 +4819,315 @@ async function rpAct(a, el){
   }
 }
 
+/* ---- Thi cuối năm: bảng điểm đơn giản ---- */
+const EX_AWARDS = ["Giải nhất", "Giải nhì", "Giải ba", "Khuyến khích"];
+async function loadExams(force = false){
+  if (SS.exams && !force) return SS.exams;
+  const [e, n] = await Promise.all([getDocs(collection(db, "examEvents")), getDocs(collection(db, "examEntries"))]);
+  SS.exams = e.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  SS.entries = n.docs.map(d => ({ id: d.id, ...d.data() }));
+  return SS.exams;
+}
+const exEntries = id => (SS.entries || []).filter(x => x.examId === id)
+  .sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || sortByName({ fullName: a.personName }, { fullName: b.personName }));
+const exRank = (en, e) => e.score == null ? "—" : en.filter(o => o.score != null && o.score > e.score).length + 1;
+
+async function ssExam(){
+  await loadExams();
+  if (view !== "sschool" || SS.tab !== "exam") return;
+  if (SS.exId) return ssExamDetail();
+  const list = SS.exams;
+  $("#ssbody").innerHTML = `
+    <div class="hint" style="margin-bottom:10px">Bảng điểm các kỳ thi cuối khóa, cuối năm, ví dụ thi Kinh Thánh nhân dịp Giáng sinh.</div>
+    <div class="toolbar">${ssFull() ? `<button class="btn" data-act="ss-ex-new">Tạo kỳ thi</button>` : ""}
+      ${list.length ? `<span class="exp"><button class="btn ghost sm" data-act="ss-ex-export" data-what="list" data-fmt="csv">Xuất CSV</button> <button class="btn ghost sm" data-act="ss-ex-export" data-what="list" data-fmt="xlsx">Xuất Excel</button></span>` : ""}</div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>Kỳ thi</th><th>Ngày</th><th class="num">Số người thi</th><th class="num">Điểm cao nhất</th></tr></thead><tbody>
+      ${list.map(x => { const en = exEntries(x.id); const top = en.find(e => e.score != null);
+        return `<tr data-act="ss-ex-open" data-id="${esc(x.id)}" style="cursor:pointer"><td><strong>${esc(x.name)}</strong></td>
+          <td>${x.date ? fmtDate(x.date) : "—"}</td><td class="num">${en.length}</td><td class="num">${top ? top.score : "—"}</td></tr>`; }).join("")}</tbody></table></div>`
+    : `<div class="empty">Chưa có kỳ thi nào. ${ssFull() ? "Bấm “Tạo kỳ thi”." : ""}</div>`}`;
+}
+
+async function ssExamDetail(){
+  await loadExams();
+  const x = SS.exams.find(e => e.id === SS.exId);
+  if (!x){ SS.exId = ""; return ssExam(); }
+  const en = exEntries(x.id);
+  const labels = donorLabels();
+  $("#ssbody").innerHTML = `
+    <button class="linkbtn" data-act="ss-ex-back" style="margin-bottom:12px">← Các kỳ thi</button>
+    <div class="head" style="border:0;margin-bottom:8px"><div><h2>${esc(x.name)}</h2>
+      <div class="sub">${x.date ? fmtDate(x.date) : "Chưa có ngày"} · ${en.length} người thi${x.note ? " · " + esc(x.note) : ""}</div></div>
+      ${ssFull() ? `<button class="btn ghost sm" data-act="ss-ex-edit" data-id="${esc(x.id)}">Sửa kỳ thi</button>` : ""}</div>
+    <form id="fexe" class="toolbar" autocomplete="off">
+      <input name="donor" list="ssNames" placeholder="Gõ tên người thi" style="flex:2 1 220px">
+      <datalist id="ssNames">${[...labels.keys()].map(l => `<option value="${esc(l)}"></option>`).join("")}</datalist>
+      <input name="score" type="number" step="0.5" min="0" placeholder="Điểm" style="max-width:110px">
+      <input name="award" list="exAwards" placeholder="Giải thưởng (nếu có)" style="max-width:220px">
+      <datalist id="exAwards">${EX_AWARDS.map(a => `<option value="${a}"></option>`).join("")}</datalist>
+      <button class="btn" type="submit">Thêm</button>
+    </form>
+    ${en.length ? `<div class="scroll"><table><thead><tr><th>Hạng</th><th>Họ và tên</th><th>Điểm</th><th>Giải thưởng</th><th></th></tr></thead><tbody>
+      ${en.map(e => `<tr><td class="num">${exRank(en, e)}</td><td><strong>${esc(e.personName)}</strong></td>
+        <td><input type="number" step="0.5" min="0" data-eid="${esc(e.id)}" data-f="score" value="${e.score ?? ""}" style="width:96px"></td>
+        <td><input data-eid="${esc(e.id)}" data-f="award" value="${esc(e.award || "")}" list="exAwards" style="min-width:160px"></td>
+        <td>${ssFull() ? `<button class="btn ghost sm" data-act="ss-ex-rm" data-id="${esc(e.id)}">Bỏ</button>` : ""}</td></tr>`).join("")}</tbody></table></div>
+      <div class="att-top" style="margin-top:12px"><button class="btn" data-act="ss-ex-save">Lưu bảng điểm</button><span class="flash" id="exMsg"></span>
+        <span class="exp" style="margin-left:auto"><button class="btn ghost sm" data-act="ss-ex-export" data-what="detail" data-fmt="csv">Xuất CSV</button> <button class="btn ghost sm" data-act="ss-ex-export" data-what="detail" data-fmt="xlsx">Xuất Excel</button></span></div>`
+    : `<div class="empty">Chưa có người thi. Thêm bằng ô phía trên.</div>`}
+    <div class="hint" style="margin-top:10px">Hạng tính theo điểm, người cùng điểm được cùng hạng. Sửa điểm xong bấm “Lưu bảng điểm”.</div>`;
+}
+
+async function addExamEntry(fd){
+  const x = SS.exams.find(e => e.id === SS.exId);
+  if (!x) return;
+  const raw = (fd.get("donor") || "").trim();
+  if (!raw) return alertErr("Vui lòng nhập tên người thi.");
+  const m = donorLabels().get(raw);
+  const personName = m ? m.fullName : raw;
+  if (exEntries(x.id).some(e => fold(e.personName) === fold(personName))) return alertErr(`${personName} đã có trong bảng điểm.`);
+  const sc = fd.get("score") === "" ? null : Number(fd.get("score"));
+  const rec = { examId: x.id, examName: x.name, personId: m ? m.id : null, personName, score: sc,
+    award: (fd.get("award") || "").trim(), createdBy: me.name, updatedBy: me.name };
+  try {
+    const ref = await addDoc(collection(db, "examEntries"), { ...rec, createdAt: serverTimestamp() });
+    SS.entries.push({ id: ref.id, ...rec });
+  } catch (err){ return alertErr("Chưa thêm được: " + err.message); }
+  ssExamDetail();
+}
+
+async function saveExamScores(){
+  const x = SS.exams.find(e => e.id === SS.exId);
+  if (!x) return;
+  const changes = [];
+  exEntries(x.id).forEach(e => {
+    const sc = document.querySelector(`input[data-eid="${CSS.escape(e.id)}"][data-f="score"]`);
+    const aw = document.querySelector(`input[data-eid="${CSS.escape(e.id)}"][data-f="award"]`);
+    if (!sc || !aw) return;
+    const score = sc.value === "" ? null : Number(sc.value);
+    const award = aw.value.trim();
+    if (score !== (e.score ?? null) || award !== (e.award || "")) changes.push({ e, score, award });
+  });
+  if (!changes.length){ $("#exMsg").textContent = "Không có thay đổi."; return; }
+  try {
+    for (let i = 0; i < changes.length; i += BATCH){
+      const b = writeBatch(db);
+      changes.slice(i, i + BATCH).forEach(({ e, score, award }) =>
+        b.update(doc(db, "examEntries", e.id), { score, award, updatedBy: me.name, updatedAt: serverTimestamp() }));
+      await b.commit();
+    }
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  changes.forEach(({ e, score, award }) => { e.score = score; e.award = award; });
+  await ssExamDetail();
+  if ($("#exMsg")) $("#exMsg").textContent = `Đã lưu ${changes.length} dòng.`;
+}
+
+async function removeExamEntry(id){
+  const e = SS.entries.find(x => x.id === id);
+  if (!e || !confirm(`Bỏ “${e.personName}” khỏi bảng điểm?`)) return;
+  try { await deleteDoc(doc(db, "examEntries", id)); }
+  catch (err){ return alertErr("Chưa bỏ được: " + err.message); }
+  SS.entries = SS.entries.filter(x => x.id !== id);
+  ssExamDetail();
+}
+
+function openExamForm(x = {}){
+  openDialog(`
+  <form class="dlg form" id="fexam" data-id="${esc(x.id || "")}">
+    <h2 class="full">${x.id ? "Sửa kỳ thi" : "Tạo kỳ thi"}</h2>
+    <label class="full">Tên kỳ thi *<input name="name" required value="${esc(x.name)}" placeholder="VD: Thi Kinh Thánh nhân dịp Giáng sinh"></label>
+    <label>Ngày thi<input type="date" name="date" value="${esc(x.date)}"></label>
+    <label class="full">Ghi chú<textarea name="note" rows="2">${esc(x.note)}</textarea></label>
+    <div class="dlg-foot full">
+      ${x.id && ssFull() ? `<button type="button" class="btn danger" data-act="ss-ex-del" data-id="${esc(x.id)}">Xóa kỳ thi</button>` : ""}
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button>
+    </div>
+  </form>`);
+}
+
+async function saveExam(id, fd){
+  const name = fd.get("name").trim();
+  if (!name) return alertErr("Vui lòng nhập tên kỳ thi.");
+  const data = { name, date: fd.get("date") || null, note: (fd.get("note") || "").trim(), updatedBy: me.name, updatedAt: serverTimestamp() };
+  try {
+    if (id) await updateDoc(doc(db, "examEvents", id), data);
+    else {
+      const ref = await addDoc(collection(db, "examEvents"), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+      SS.exId = ref.id;
+    }
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  await loadExams(true);
+  closeDialog();
+  ssExam();
+}
+
+async function deleteExam(id){
+  const x = SS.exams.find(e => e.id === id);
+  if (!x || !confirm(`Xóa kỳ thi “${x.name}” cùng toàn bộ bảng điểm? Không thể hoàn tác.`)) return;
+  try {
+    const en = exEntries(id);
+    for (let i = 0; i < en.length; i += BATCH){
+      const b = writeBatch(db);
+      en.slice(i, i + BATCH).forEach(e => b.delete(doc(db, "examEntries", e.id)));
+      await b.commit();
+    }
+    await deleteDoc(doc(db, "examEvents", id));
+  } catch (err){ return alertErr("Chưa xóa được: " + err.message); }
+  SS.exId = "";
+  await loadExams(true);
+  closeDialog();
+  ssExam();
+}
+
+async function ssExamExport(what, fmt){
+  try {
+    await loadExams();
+    let rows, name;
+    if (what === "list"){
+      rows = [["Kỳ thi", "Ngày", "Số người thi", "Điểm cao nhất"],
+        ...SS.exams.map(x => { const en = exEntries(x.id); const top = en.find(e => e.score != null);
+          return [x.name, x.date ? fmtDate(x.date) : "", en.length, top ? top.score : ""]; })];
+      name = "thi-cuoi-nam-danh-sach";
+    } else {
+      const x = SS.exams.find(e => e.id === SS.exId);
+      if (!x) return;
+      const en = exEntries(x.id);
+      rows = [["Hạng", "Họ và tên", "Điểm", "Giải thưởng"], ...en.map(e => [exRank(en, e), e.personName, e.score ?? "", e.award || ""])];
+      name = "thi-" + slug(x.name);
+    }
+    await downloadRows(rows, name, fmt);
+  } catch (err){ alertErr("Chưa xuất được: " + err.message); }
+}
+
+/* ============ CHI PHÁI VÀ BAN NGÀNH (CẤU HÌNH) ============ */
+let UNITS = [];
+let UNIT_NAMES = new Map();
+let UNIT_RANGES = [];
+const defaultUnits = () => [
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map(n => ({ kind: "tribe", num: n, name: "Chi phái " + n, active: true, order: n })),
+  ...[["Thiếu nhi", 0, 11], ["Thiếu niên", 12, 17], ["Thanh niên", 18, 29], ["Nam giới", null, null], ["Phụ nữ", null, null], ["Cao niên", 60, 120]]
+    .map(([name, ageMin, ageMax], i) => ({ kind: "ministry", name, ageMin, ageMax, active: true, order: i + 1 }))
+];
+async function loadUnits(){
+  try {
+    const snap = await getDocs(collection(db, "units"));
+    UNITS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err){ UNITS = []; }
+  applyUnits();
+}
+function applyUnits(){
+  const src = UNITS.length ? UNITS : defaultUnits();
+  const tribes = src.filter(u => u.kind === "tribe").sort((a, b) => a.num - b.num);
+  const mins = src.filter(u => u.kind === "ministry").sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  UNIT_NAMES = new Map(tribes.map(u => [u.num, u.name]));
+  TRIBES = tribes.filter(u => u.active !== false).map(u => u.num);
+  MINISTRIES = mins.filter(u => u.active !== false).map(u => u.name);
+  UNIT_RANGES = mins.filter(u => u.active !== false && u.ageMin != null && u.ageMax != null);
+}
+const nextTribeNum = () => Math.max(0, ...UNITS.filter(u => u.kind === "tribe").map(u => u.num || 0)) + 1;
+
+async function seedUnits(){
+  if (UNITS.length) return;
+  try {
+    const b = writeBatch(db);
+    defaultUnits().forEach(u => b.set(doc(collection(db, "units")), { ...u, createdBy: me.name, createdAt: serverTimestamp() }));
+    await b.commit();
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  await loadUnits();
+  vSecretariat();
+}
+
+async function secUnits(){
+  if (view !== "secretariat" || SEC.tab !== "units") return;
+  const has = UNITS.length > 0;
+  const tribes = UNITS.filter(u => u.kind === "tribe").sort((a, b) => a.num - b.num);
+  const mins = UNITS.filter(u => u.kind === "ministry").sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  const badge = u => u.active === false ? `<span class="badge">Ngừng</span>` : `<span class="badge ok">Đang dùng</span>`;
+  $("#secbody").innerHTML = `
+    <div class="hint" style="margin-bottom:12px">Thêm, đổi tên hoặc ngừng chi phái và ban ngành. Ban đã ngừng không hiện trong danh sách chọn, hồ sơ cũ vẫn giữ nguyên. Đổi tên ban sẽ tự cập nhật cho các tín hữu đang thuộc ban đó.</div>
+    ${has ? "" : `<div class="hint warn" style="margin-bottom:12px">Đang dùng cấu hình mặc định. Bấm “Lưu cấu hình mặc định” để bắt đầu chỉnh sửa.</div>
+      <div class="toolbar"><button class="btn" data-act="sec-unit-seed">Lưu cấu hình mặc định</button></div>`}
+    <div class="section"><h2>Chi phái</h2>
+      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="tribe" ${has ? "" : "disabled"}>Thêm chi phái</button></div>
+      ${tribes.length ? `<div class="scroll"><table><thead><tr><th>Số</th><th>Tên hiển thị</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+        ${tribes.map(u => `<tr><td>${u.num}</td><td>${esc(u.name)}</td><td>${badge(u)}</td>
+          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${has ? "" : "disabled"}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">Chưa có chi phái.</div>`}
+    </div>
+    <div class="section"><h2>Ban ngành</h2>
+      <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="ministry" ${has ? "" : "disabled"}>Thêm ban ngành</button></div>
+      ${mins.length ? `<div class="scroll"><table><thead><tr><th>Tên ban</th><th>Độ tuổi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+        ${mins.map(u => `<tr><td><strong>${esc(u.name)}</strong></td>
+          <td>${u.ageMin != null ? `${u.ageMin}–${u.ageMax} tuổi` : "Không theo tuổi"}</td><td>${badge(u)}</td>
+          <td><button class="btn ghost sm" data-act="sec-unit-edit" data-id="${esc(u.id)}" ${has ? "" : "disabled"}>Sửa</button></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">Chưa có ban ngành.</div>`}
+    </div>`;
+}
+
+function openUnitForm(u = {}, kind){
+  const k = u.kind || kind;
+  const isNew = !u.id;
+  openDialog(`
+  <form class="dlg form" id="funit" data-id="${esc(u.id || "")}" data-kind="${k}">
+    <h2 class="full">${isNew ? "Thêm" : "Sửa"} ${k === "tribe" ? "chi phái" : "ban ngành"}</h2>
+    ${k === "tribe" ? `
+      <label class="full">Tên hiển thị *<input name="name" required value="${esc(u.name || "Chi phái " + nextTribeNum())}"></label>
+      <div class="hint full">Số chi phái: ${u.num ?? nextTribeNum()} (tự động, không đổi).</div>`
+    : `
+      <label class="full">Tên ban *<input name="name" required value="${esc(u.name)}" placeholder="VD: Âm nhạc, Thiếu nhi"></label>
+      <label>Độ tuổi từ<input type="number" name="ageMin" min="0" max="120" value="${u.ageMin ?? ""}"></label>
+      <label>Đến tuổi<input type="number" name="ageMax" min="0" max="120" value="${u.ageMax ?? ""}"></label>
+      <div class="hint full">Dùng để gợi ý ban khi thêm tín hữu theo tuổi. Để trống nếu ban không theo độ tuổi (ví dụ Nam giới, Phụ nữ).</div>
+      <label>Thứ tự hiển thị<input type="number" name="order" min="0" value="${u.order ?? ""}"></label>`}
+    <label class="full check"><input type="checkbox" name="active" ${u.active === false ? "" : "checked"} style="width:auto"> Đang dùng</label>
+    <div class="dlg-foot full">
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-act="close">Hủy</button>
+      <button class="btn" type="submit">Lưu</button>
+    </div>
+  </form>`);
+}
+
+async function renameMinistryMembers(oldName, newName){
+  const hit = members.filter(m => m.ministry === oldName);
+  for (let i = 0; i < hit.length; i += BATCH){
+    const b = writeBatch(db);
+    hit.slice(i, i + BATCH).forEach(m => b.update(doc(db, "members", m.id), { ministry: newName, updatedBy: me.name, updatedAt: serverTimestamp() }));
+    await b.commit();
+  }
+  hit.forEach(m => { m.ministry = newName; });
+  return hit.length;
+}
+
+async function saveUnit(id, kind, fd){
+  const name = fd.get("name").trim();
+  if (!name) return alertErr("Vui lòng nhập tên.");
+  if (UNITS.some(u => u.id !== id && u.kind === kind && fold(u.name) === fold(name))) return alertErr(`Đã có “${name}”.`);
+  const active = fd.get("active") === "on";
+  const old = id ? UNITS.find(u => u.id === id) : null;
+  let data;
+  if (kind === "tribe"){
+    const num = old ? old.num : nextTribeNum();
+    data = { kind, num, name, active, order: old?.order ?? num };
+  } else {
+    const ageMin = num_(fd.get("ageMin")), ageMax = num_(fd.get("ageMax"));
+    if ((ageMin == null) !== (ageMax == null)) return alertErr("Nhập đủ cả hai mốc tuổi, hoặc để trống cả hai.");
+    if (ageMin != null && ageMax < ageMin) return alertErr("Tuổi đến phải lớn hơn hoặc bằng tuổi từ.");
+    data = { kind, name, ageMin, ageMax, active, order: num_(fd.get("order")) ?? 99 };
+  }
+  try {
+    if (id) await updateDoc(doc(db, "units", id), { ...data, updatedBy: me.name, updatedAt: serverTimestamp() });
+    else await addDoc(collection(db, "units"), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+    if (kind === "ministry" && old && old.name !== name) await renameMinistryMembers(old.name, name);
+  } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
+  await loadUnits();
+  closeDialog();
+  vSecretariat();
+}
+const num_ = v => (v === "" || v == null) ? null : Number(v);
+
 /* ============ SỰ KIỆN CHUNG ============ */
 document.addEventListener("focusin", e => { if (e.target.classList?.contains("qamt")) qActive = e.target; });
 
@@ -4909,6 +5230,9 @@ document.addEventListener("submit", async e => {
   if (f.id === "ftnp")    return saveTnProg(f.dataset.id || null, fd);
   if (f.id === "fcare")   return saveCare(f.dataset.type, f.dataset.id || null, fd);
   if (f.id === "fsm")     return saveSecMember(f.dataset.id || null, fd);
+  if (f.id === "funit")   return saveUnit(f.dataset.id || null, f.dataset.kind, fd);
+  if (f.id === "fexam")   return saveExam(f.dataset.id || null, fd);
+  if (f.id === "fexe")    return addExamEntry(fd);
   if (f.id === "freg")    return saveReg(f.dataset.type, f.dataset.id || null, fd);
   if (f.id === "flead")   return saveLead(f.dataset.id || null, fd);
   if (f.id === "fu")      return saveUser(f.dataset.id || null, fd);
