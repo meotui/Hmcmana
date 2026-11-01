@@ -362,7 +362,7 @@ const CHURCH_ADDRESS = "Địa chỉ hội thánh";
 const CHURCH_PHONE = "";
 const RECEIPT_FOOTER = "Cảm tạ Chúa. Xin Chúa ban phước cho tấm lòng dâng hiến của anh chị em.";
 let TRIBES = [1,2,3,4,5,6,7,8];
-let MINISTRIES = ["Thiếu nhi","Thiếu niên","Thanh niên","Nam giới","Phụ nữ","Cao niên"];
+let MINISTRIES = ["Ấu nhi","Nhi đồng","Thiếu nhi","Thiếu niên","Thanh niên","Thanh tráng","Tráng niên","Trung niên","Cao niên","Nam giới","Phụ nữ"];
 const RELATIONS = ["Chủ hộ","Vợ","Chồng","Con","Cha","Mẹ","Anh/Chị/Em","Khác"];
 const COURSE_TYPES = ["Kinh Thánh","Bồi dưỡng","Khác"];
 // Danh mục quỹ: sửa theo thực tế hội thánh. Đổi tên về sau không làm mất dữ liệu cũ (báo cáo vẫn gom theo tên đã lưu).
@@ -395,10 +395,12 @@ const isFinance = () => me?.role === "finance";
 const isLeader = () => me?.role === "leader";                                    // Mục sư quản nhiệm: chỉ xem
 const isTop = () => isAdmin() || isLeader();                                     // đọc toàn hội thánh
 const isBanHead = () => !!me?.ministry && (me?.role === "ministry" || me?.ss === "head" || me?.tn === "head");
-const banOwned = m => isBanHead() && m?.ministry === me.ministry;
+const banOwned = m => isBanHead() && (m?.ministry === me.ministry || (m?.groups || []).includes(me.ministry));
 const canEditFinance = () => isSysAdmin() || isFinance();                        // nhận tiền dâng: Admin và Ban Tài chính
 const canViewFinance = () => isAdmin() || isFinance() || isLeader();
 const canEditMember = m => isAdmin() || (me?.role === "tribe" && m?.tribe === me.tribe) || banOwned(m);
+// Khi giáo viên chưa thấy lớp: nói rõ email đang đăng nhập để so với email đã gán trong danh sách
+const notAssigned = (what) => `Bạn chưa được phân công ${what}.<div class="sub" style="margin-top:8px">Tài khoản đang đăng nhập: <b>${esc(me?.email || "")}</b>. Nếu đã được gán, Trưởng ban kiểm tra email trong hồ sơ tín hữu có đúng email này không.</div>`;
 const tribeName = t => t ? (UNIT_NAMES.get(Number(t)) || `Chi phái ${t}`) : "Chưa rõ";
 
 function ageGroup(y){
@@ -455,9 +457,13 @@ async function loadData(){
     return;
   }
   if (me.role === "ministry"){
-    const m = await getDocs(query(collection(db, "members"), where("ministry", "==", me.ministry)));
+    const m = me.ss
+      ? await getDocs(collection(db, "members"))
+      : await getDocs(query(collection(db, "members"), where("groups", "array-contains", me.ministry)));
     members = m.docs.map(d => ({id:d.id, ...d.data()}));
-    households = []; courses = []; enrollments = [];
+    const cs = me.ss ? await getDocs(collection(db, "courses")) : null;
+    courses = cs ? cs.docs.map(d => ({id:d.id, ...d.data()})) : [];
+    households = []; enrollments = [];
     return;
   }
   if (me.role === "ss"){
@@ -574,7 +580,7 @@ function render(){
   if (isFinance()) allowed = ["quick", "offerings", "reports"];
   else if (me.role === "care") allowed = ["care"];
   else if (me.role === "tn") allowed = ["tnsch", ...(isBanHead() ? ["members", "baninfo"] : [])];
-  else if (me.role === "ministry") allowed = ["members", "baninfo"];
+  else if (me.role === "ministry") allowed = ["members", "baninfo", ...(me.ss ? ["sschool"] : [])];
   else if (me.role === "visit") allowed = ["visits"];
   else {
     if (isTop() || me.role === "tribe") allowed.push("overview","members","households","reports");
@@ -705,7 +711,7 @@ function memberForm(m = {}){
     <label>Chi phái<select name="tribe" ${(isAdmin() || isBanHead()) ? "" : "disabled"}>
       ${(isAdmin() || isBanHead()) ? `<option value="">Chưa rõ</option>` : ""}${TRIBES.map(t => opt(t, tribeVal, tribeName(t))).join("")}</select>
       ${(isAdmin() || isBanHead()) ? `<div class="hint">Bắt buộc với tín hữu của hội thánh; vãng lai có thể để trống.</div>` : ""}</label>
-    <label>Ban sinh hoạt<select name="ministry" ${(me.role === "ministry" || (isBanHead() && !isAdmin())) ? "disabled" : ""}><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, (me.role === "ministry" || (isBanHead() && !isAdmin())) ? me.ministry : m.ministry, k)).join("")}</select>
+    <label>Ban sinh hoạt<select name="ministry" ${(me.role === "ministry" || (isBanHead() && !isAdmin())) ? "disabled" : ""}><option value="">Chưa xếp</option>${MINISTRIES.map(k => opt(k, (isBanHead() && !isAdmin()) ? (m.ministry || me.ministry) : m.ministry, k)).join("")}</select>
       <div class="hint" id="sugg">${sugg ? "Gợi ý theo tuổi: " + sugg : ""}</div></label>
     <label>Hộ gia đình<select name="householdId"><option value="">Chưa thuộc hộ</option>${hhOptions}</select></label>
     <label>Quan hệ trong hộ<select name="relation"><option value="">—</option>${RELATIONS.map(r => opt(r, m.relation, r)).join("")}</select></label>
@@ -785,7 +791,7 @@ async function saveMember(id, fd){
     faithYear: num(fd.get("faithYear")),
     baptismYear: num(fd.get("baptismYear")),
     tribe,
-    ministry: (me.role === "ministry" || (isBanHead() && !isAdmin())) ? me.ministry : (fd.get("ministry") || null),
+    ministry: (isBanHead() && !isAdmin()) ? ((id && members.find(x => x.id === id)?.ministry) || me.ministry) : (fd.get("ministry") || null),
     email: (fd.get("email") || "").trim().toLowerCase() || null,
     phone: phoneV,
     birthday: bdV,
@@ -796,9 +802,9 @@ async function saveMember(id, fd){
     updatedAt: serverTimestamp()
   };
   const before = id ? { ...(members.find(x => x.id === id) || {}) } : null;
-  if (id) await updateDoc(doc(db, "members", id), { ...data, updatedBy: me.name });
+  if (id) await updateDoc(doc(db, "members", id), { ...data, groups: groupsOf(data), updatedBy: me.name });
   else {
-    const ref = await addDoc(collection(db, "members"), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+    const ref = await addDoc(collection(db, "members"), { ...data, groups: groupsOf(data), createdBy: me.name, createdAt: serverTimestamp() });
     id = ref.id;
   }
   await writeMemberLog(before ? "sửa" : "thêm", id, data.fullName, before, data);
@@ -2016,7 +2022,7 @@ async function ssAttend(){
   const list = myClasses();
   const body = $("#ssbody");
   if (!list.length){
-    body.innerHTML = `<div class="empty">${ssFull() ? "Chưa có lớp nào. Vào tab Lớp để tạo lớp." : "Bạn chưa được phân công lớp nào. Liên hệ Trưởng ban hoặc Thư ký Trường Chúa Nhật."}</div>`;
+    body.innerHTML = `<div class="empty">${ssFull() ? "Chưa có lớp nào. Vào tab Lớp để tạo lớp." : notAssigned("lớp nào. Liên hệ Trưởng ban hoặc Thư ký Trường Chúa Nhật")}</div>`;
     return;
   }
   if (!list.some(c => c.id === SS.classId)) SS.classId = list[0].id;
@@ -2106,7 +2112,7 @@ async function ssClasses(){
         <td>${esc(c.ministry || "—")}</td>
         <td>${(c.teacherEmails || []).length ? esc(c.teacherEmails.join(", ")) : `<span class="muted">Chưa phân công</span>`}</td>
         <td class="num">${(SS.rosters[c.id] || []).length}</td></tr>`).join("")}</tbody></table></div>`
-      : `<div class="empty">${ssFull() ? "Chưa có lớp nào." : "Bạn chưa được phân công lớp nào."}
+      : `<div class="empty">${ssFull() ? "Chưa có lớp nào." : notAssigned("lớp nào")}
           ${ssFull() ? `<div style="margin-top:12px"><button class="btn ghost" data-act="ss-seed-classes">Tạo lớp mẫu từ các ban (${MINISTRIES.join(", ")})</button></div>` : ""}</div>`}`;
 }
 
@@ -2300,7 +2306,7 @@ async function ssCourses(){
       ${list.map(c => `<tr data-act="ss-open-course" data-id="${c.id}" style="cursor:pointer"><td><strong>${esc(c.name)}</strong></td><td>${esc(c.type || "—")}</td>
         <td>${c.startDate ? fmtDate(c.startDate) + (c.endDate ? " – " + fmtDate(c.endDate) : "") : (c.year || "—")}</td>
         <td>${(c.teacherEmails || []).length ? esc(c.teacherEmails.join(", ")) : `<span class="muted">—</span>`}</td></tr>`).join("")}</tbody></table></div>`
-      : `<div class="empty">${ssFull() ? "Chưa có khóa học nào." : "Bạn chưa được phân công khóa học nào."}</div>`}`;
+      : `<div class="empty">${ssFull() ? "Chưa có khóa học nào." : notAssigned("khóa học nào")}</div>`}`;
 }
 
 // Giáo viên chọn từ danh sách tín hữu (lấy email đăng nhập của họ); cho phép nhập thẳng email
@@ -2644,7 +2650,7 @@ function syncUserForm(){
   if (!f) return;
   const r = f.role.value;
   $("#uTribeWrap").classList.toggle("hidden", r !== "tribe");
-  $("#uSsWrap").classList.toggle("hidden", !(r === "tribe" || r === "ss"));
+  $("#uSsWrap").classList.toggle("hidden", !(r === "tribe" || r === "ss" || r === "ministry"));
   $("#uMinWrap").classList.toggle("hidden", !["ministry", "ss", "tn"].includes(r));
   f.ministry.required = r === "ministry";
   f.tribe.required = r === "tribe";
@@ -2672,7 +2678,7 @@ async function saveUser(id, fd){
   const name = fd.get("name").trim();
   const email = fd.get("email").trim().toLowerCase();
   const tribe = role === "tribe" ? Number(fd.get("tribe")) : null;
-  const ss = (role === "tribe" || role === "ss") ? (fd.get("ss") || null) : null;
+  const ss = (role === "tribe" || role === "ss" || role === "ministry") ? (fd.get("ss") || null) : null;
   const tn = role === "tn" ? (fd.get("tn") || null) : null;
   if (role === "tn" && !tn) return alertErr("Vui lòng chọn vai trò trong Ban Thiếu nhi Ấu.");
   if (!name) return alertErr("Vui lòng nhập họ tên.");
@@ -3161,6 +3167,8 @@ async function secAct(a, el){
     case "sec-unit-new": return openUnitForm({}, el.dataset.kind);
     case "sec-unit-edit": return openUnitForm(UNITS.find(u => u.id === id));
     case "sec-unit-seed": return seedUnits();
+    case "sec-unit-sync": return syncGroups();
+    case "sec-unit-official": return applyOfficialAges();
     case "sec-export": return secExport(el.dataset.what, el.dataset.fmt);
     case "sec-mnew": return openSecMemberForm({});
     case "sec-mopen": return openSecMemberForm(members.find(m => m.id === id));
@@ -3267,11 +3275,11 @@ async function saveSecMember(id, fd){
     ministry: fd.get("ministry") || null, address: fd.get("address").trim(), note: fd.get("note").trim(), memberType };
   try {
     if (id){
-      await updateDoc(doc(db, "members", id), { ...data, updatedBy: me.name, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "members", id), { ...data, groups: groupsOf(data), updatedBy: me.name, updatedAt: serverTimestamp() });
       Object.assign(members.find(m => m.id === id), data);
     } else {
       const extra = { householdId: null, relation: null };
-      const ref = await addDoc(collection(db, "members"), { ...data, ...extra, createdBy: me.name, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const ref = await addDoc(collection(db, "members"), { ...data, ...extra, groups: groupsOf(data), createdBy: me.name, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       members.push({ id: ref.id, ...data, ...extra });
     }
   } catch (err){ return alertErr("Chưa lưu được: " + err.message); }
@@ -3319,6 +3327,16 @@ function normBirthday(v){
   throw new Error(`Sinh nhật không hợp lệ: “${s0}” (dùng dd/mm/yyyy hoặc dd/mm)`);
 }
 // Xếp ban theo tuổi theo dãy tuổi đã cấu hình; không đoán khi không có năm sinh
+// Nhóm của tín hữu: ban chính, cộng các ban phụ (ví dụ Ban Phụ nữ gồm nữ thuộc Thanh niên, Tráng niên, Cao niên)
+function groupsOf(m){
+  const g = [];
+  if (m?.ministry) g.push(m.ministry);
+  const src = UNITS.length ? UNITS : defaultUnits();
+  if (m?.gender === "Nữ")
+    src.filter(u => u.kind === "ministry" && u.active !== false && (u.overlayFor || []).includes(m.ministry))
+      .forEach(u => g.push(u.name));
+  return [...new Set(g)];
+}
 function ministryForAge(y, gender){
   const a = ageOf(y);
   if (a == null) return "";
@@ -3582,7 +3600,7 @@ async function runImport(){
   if (!vals.length) return;
   const go = $("#impGo"), box = $("#impResult");
   go.disabled = true;
-  const items = vals.map(v => ({ id: doc(collection(db, spec.coll)).id, data: spec.build(v) }));
+  const items = vals.map(v => { const d = spec.build(v); if (spec.coll === "members") d.groups = groupsOf(d); return { id: doc(collection(db, spec.coll)).id, data: d }; });
   const starts = [];
   for (let i = 0; i < items.length; i += BATCH) starts.push(i);
   let done = 0, failed = null;
@@ -3886,7 +3904,7 @@ async function vTn(){
 async function tnAttend(){
   const body = $("#tnbody"), list = tnClassList();
   if (!list.length){
-    body.innerHTML = `<div class="empty">${tnFull() ? "Chưa có lớp. Vào tab Lớp để tạo lớp, hoặc bấm “Tạo lớp mẫu theo độ tuổi”." : "Bạn chưa được phân công lớp nào. Liên hệ Trưởng ban Thiếu nhi Ấu."}</div>`;
+    body.innerHTML = `<div class="empty">${tnFull() ? "Chưa có lớp. Vào tab Lớp để tạo lớp, hoặc bấm “Tạo lớp mẫu theo độ tuổi”." : notAssigned("lớp nào. Liên hệ Trưởng ban Thiếu nhi Ấu")}</div>`;
     return;
   }
   if (!list.some(c => c.id === TN.classId)) TN.classId = list[0].id;
@@ -3944,7 +3962,7 @@ async function tnClassesTab(){
       ${list.map(c => `<tr data-act="tn-open-class" data-id="${c.id}" style="cursor:pointer"><td><strong>${esc(c.name)}</strong>${c.active === false ? `<span class="badge">Ngừng</span>` : ""}</td>
         <td>${esc(bandOf(c))}</td><td>${teacherNamesOf(c) ? esc(teacherNamesOf(c)) : `<span class="muted">Chưa phân công</span>`}</td>
         <td class="num">${(TN.roster[c.id] || []).length}</td></tr>`).join("")}</tbody></table></div>`
-    : `<div class="empty">${tnFull() ? "Chưa có lớp nào." : "Bạn chưa được phân công lớp nào."}</div>`}`;
+    : `<div class="empty">${tnFull() ? "Chưa có lớp nào." : notAssigned("lớp nào")}</div>`}`;
 }
 
 async function tnClassDetail(){
@@ -5275,13 +5293,26 @@ async function ssExamExport(what, fmt){
 }
 
 /* ============ CHI PHÁI VÀ BAN NGÀNH (CẤU HÌNH) ============ */
+// Độ tuổi các ban theo quy định chính thức của hội thánh
+const OFFICIAL_MINISTRIES = [
+  { name: "Ấu nhi", ageMin: 0, ageMax: 6 },
+  { name: "Nhi đồng", ageMin: 7, ageMax: 9 },
+  { name: "Thiếu nhi", ageMin: 10, ageMax: 14 },
+  { name: "Thiếu niên", ageMin: 15, ageMax: 17 },
+  { name: "Thanh niên", ageMin: 18, ageMax: 30 },
+  { name: "Thanh tráng", ageMin: 31, ageMax: 40 },
+  { name: "Tráng niên", ageMin: 41, ageMax: 50 },
+  { name: "Trung niên", ageMin: 51, ageMax: 65 },
+  { name: "Cao niên", ageMin: 66, ageMax: 120 },
+  { name: "Nam giới", ageMin: null, ageMax: null },
+  { name: "Phụ nữ", ageMin: null, ageMax: null, overlayFor: ["Thanh niên", "Thanh tráng", "Tráng niên", "Trung niên", "Cao niên"] }
+];
 let UNITS = [];
 let UNIT_NAMES = new Map();
 let UNIT_RANGES = [];
 const defaultUnits = () => [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map(n => ({ kind: "tribe", num: n, name: "Chi phái " + n, active: true, order: n })),
-  ...[["Thiếu nhi", 0, 11], ["Thiếu niên", 12, 17], ["Thanh niên", 18, 29], ["Nam giới", null, null], ["Phụ nữ", null, null], ["Cao niên", 60, 120]]
-    .map(([name, ageMin, ageMax], i) => ({ kind: "ministry", name, ageMin, ageMax, active: true, order: i + 1 }))
+  ...OFFICIAL_MINISTRIES.map((o, i) => ({ kind: "ministry", name: o.name, ageMin: o.ageMin, ageMax: o.ageMax, active: true, order: i + 1, overlayFor: o.overlayFor || [] }))
 ];
 async function loadUnits(){
   try {
@@ -5323,6 +5354,7 @@ async function secUnits(){
     <div class="hint" style="margin-bottom:12px">Thêm, đổi tên hoặc ngừng chi phái và ban ngành. Ban đã ngừng không hiện trong danh sách chọn, hồ sơ cũ vẫn giữ nguyên. Đổi tên ban sẽ tự cập nhật cho các tín hữu đang thuộc ban đó.</div>
     ${has ? "" : `<div class="hint warn" style="margin-bottom:12px">Đang dùng cấu hình mặc định. Bấm “Lưu cấu hình mặc định” để bắt đầu chỉnh sửa.</div>
       <div class="toolbar"><button class="btn" data-act="sec-unit-seed">Lưu cấu hình mặc định</button></div>`}
+    ${isAdmin() ? `<div class="toolbar"><button class="btn ghost" data-act="sec-unit-sync">Cập nhật nhóm ban cho tín hữu</button> <button class="btn ghost" data-act="sec-unit-official">Áp dụng độ tuổi chính thức</button></div>` : ""}
     <div class="section"><h2>Chi phái</h2>
       <div class="toolbar"><button class="btn" data-act="sec-unit-new" data-kind="tribe" ${dis}>Thêm chi phái</button></div>
       ${tribes.length ? `<div class="scroll"><table><thead><tr><th>Số</th><th>Tên hiển thị</th><th>Trạng thái</th><th></th></tr></thead><tbody>
@@ -5369,6 +5401,45 @@ async function vUnits(){
   secUnits();
 }
 
+// Cập nhật trường nhóm (ban chính + Ban Phụ nữ) cho toàn bộ tín hữu khi đổi quy tắc
+async function syncGroups(){
+  if (!isAdmin()) return;
+  const todo = members.filter(m => JSON.stringify(groupsOf(m)) !== JSON.stringify(m.groups || []));
+  if (!todo.length) return alert("Nhóm ban của tất cả tín hữu đã đúng.");
+  if (!confirm(`Cập nhật nhóm ban cho ${todo.length} tín hữu?`)) return;
+  try {
+    for (let i = 0; i < todo.length; i += BATCH){
+      const b = writeBatch(db);
+      todo.slice(i, i + BATCH).forEach(m => {
+        m.groups = groupsOf(m);
+        b.update(doc(db, "members", m.id), { groups: m.groups, updatedBy: me.name, updatedAt: serverTimestamp() });
+      });
+      await b.commit();
+    }
+  } catch (err){ return alertErr("Chưa cập nhật được: " + err.message); }
+  alert(`Đã cập nhật ${todo.length} tín hữu.`);
+}
+
+// Cập nhật độ tuổi và nhóm Phụ nữ theo quy định; ban chưa có sẽ được thêm
+async function applyOfficialAges(){
+  if (!isAdmin()) return;
+  if (!confirm("Cập nhật độ tuổi các ban theo quy định chính thức? Ban chưa có sẽ được thêm, tên ban không đổi.")) return;
+  try {
+    const b = writeBatch(db);
+    OFFICIAL_MINISTRIES.forEach((o, i) => {
+      const cur = UNITS.find(u => u.kind === "ministry" && fold(u.name) === fold(o.name));
+      const data = { kind: "ministry", name: o.name, ageMin: o.ageMin, ageMax: o.ageMax, active: true,
+        order: i + 1, overlayFor: o.overlayFor || [], updatedBy: me.name, updatedAt: serverTimestamp() };
+      if (cur) b.update(doc(db, "units", cur.id), data);
+      else b.set(doc(collection(db, "units")), { ...data, createdBy: me.name, createdAt: serverTimestamp() });
+    });
+    await b.commit();
+  } catch (err){ return alertErr("Chưa cập nhật được: " + err.message); }
+  await loadUnits();
+  alert("Đã áp dụng độ tuổi chính thức. Bấm “Cập nhật nhóm ban cho tín hữu” để tính lại nhóm cho danh sách.");
+  refreshUnits();
+}
+
 function openUnitForm(u = {}, kind){
   const k = u.kind || kind;
   const isNew = !u.id;
@@ -5383,7 +5454,10 @@ function openUnitForm(u = {}, kind){
       <label>Độ tuổi từ<input type="number" name="ageMin" min="0" max="120" value="${u.ageMin ?? ""}"></label>
       <label>Đến tuổi<input type="number" name="ageMax" min="0" max="120" value="${u.ageMax ?? ""}"></label>
       <div class="hint full">Dùng để gợi ý ban khi thêm tín hữu theo tuổi. Để trống nếu ban không theo độ tuổi (ví dụ Nam giới, Phụ nữ).</div>
-      <label>Thứ tự hiển thị<input type="number" name="order" min="0" value="${u.order ?? ""}"></label>`}
+      <label>Thứ tự hiển thị<input type="number" name="order" min="0" value="${u.order ?? ""}"></label>
+      <div class="full"><div class="stepH">Tự động gồm nữ thuộc các ban</div>
+        ${MINISTRIES.filter(k => k !== u.name).map(k => `<label class="check" style="margin:4px 0"><input type="checkbox" name="overlay" value="${esc(k)}" ${(u.overlayFor || []).includes(k) ? "checked" : ""} style="width:auto"> ${esc(k)}</label>`).join("")}
+        <div class="hint">Nữ thuộc các ban được chọn sẽ tự thuộc ban này. Ví dụ Ban Phụ nữ chọn Thanh niên, Tráng niên, Cao niên.</div></div>`}
     <label class="full check"><input type="checkbox" name="active" ${u.active === false ? "" : "checked"} style="width:auto"> Đang dùng</label>
     <div class="dlg-foot full">
       <span class="spacer"></span>
@@ -5418,7 +5492,7 @@ async function saveUnit(id, kind, fd){
     const ageMin = num_(fd.get("ageMin")), ageMax = num_(fd.get("ageMax"));
     if ((ageMin == null) !== (ageMax == null)) return alertErr("Nhập đủ cả hai mốc tuổi, hoặc để trống cả hai.");
     if (ageMin != null && ageMax < ageMin) return alertErr("Tuổi đến phải lớn hơn hoặc bằng tuổi từ.");
-    data = { kind, name, ageMin, ageMax, active, order: num_(fd.get("order")) ?? 99 };
+    data = { kind, name, ageMin, ageMax, active, order: num_(fd.get("order")) ?? 99, overlayFor: fd.getAll("overlay") };
   }
   try {
     if (id) await updateDoc(doc(db, "units", id), { ...data, updatedBy: me.name, updatedAt: serverTimestamp() });
